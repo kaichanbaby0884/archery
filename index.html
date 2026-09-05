@@ -1,0 +1,1232 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>アーチェリー得点計算</title>
+
+<!-- PWA対応 -->
+<link rel="manifest" href="manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="アーチェリー得点">
+<meta name="theme-color" content="#0f1420">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-512.png">
+
+<style>
+  :root{
+    --bg:#0f1420;
+    --card:#1a2233;
+    --card2:#212b40;
+    --accent:#ffb703;
+    --accent2:#219ebc;
+    --text:#f2f4f8;
+    --sub:#8b93a7;
+    --danger:#e63946;
+    --gold:#ffd166;
+    --green:#2a9d8f;
+  }
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0;padding:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:"Hiragino Sans","Yu Gothic",sans-serif;
+    -webkit-tap-highlight-color:transparent;
+    user-select:none;
+  }
+  .wrap{
+    max-width:480px;
+    margin:0 auto;
+    padding:calc(16px + env(safe-area-inset-top)) 16px calc(100px + env(safe-area-inset-bottom));
+    position:relative;
+  }
+  h1{
+    font-size:19px;
+    text-align:center;
+    margin:12px 0 4px;
+    letter-spacing:1px;
+  }
+  .save-status{
+    text-align:center;
+    font-size:11px;
+    color:var(--sub);
+    margin-bottom:10px;
+    min-height:14px;
+  }
+  .mode-switch{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:8px;
+    margin-bottom:16px;
+    background:var(--card);
+    padding:5px;
+    border-radius:14px;
+  }
+  .mode-btn{
+    padding:10px 0;
+    border:none;
+    border-radius:10px;
+    background:transparent;
+    color:var(--sub);
+    font-size:14px;
+    font-weight:700;
+  }
+  .mode-btn.active{
+    background:var(--accent2);
+    color:#fff;
+  }
+  .hidden{ display:none !important; }
+
+  .stats{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:10px;
+    margin-bottom:12px;
+  }
+  .stat-card{
+    background:var(--card);
+    border-radius:14px;
+    padding:14px;
+    text-align:center;
+  }
+  .stat-card.total{
+    grid-column:1 / -1;
+    background:linear-gradient(135deg,#22304a,#16202f);
+    border:1px solid #2c3a54;
+  }
+  .stat-label{
+    font-size:12px;
+    color:var(--sub);
+    margin-bottom:4px;
+  }
+  .stat-value{
+    font-size:26px;
+    font-weight:700;
+  }
+  .total .stat-value{
+    font-size:42px;
+    color:var(--accent);
+  }
+  .session-time{
+    font-size:12px;
+    color:var(--sub);
+    text-align:center;
+    margin:-2px 0 6px;
+    min-height:14px;
+  }
+  .end-progress{
+    background:var(--card);
+    border-radius:14px;
+    padding:12px 14px;
+    margin-bottom:12px;
+    text-align:center;
+  }
+  .end-progress-title{
+    font-size:13px;
+    color:var(--sub);
+    margin-bottom:6px;
+  }
+  .end-dots{
+    display:flex;
+    justify-content:center;
+    gap:6px;
+    margin-bottom:6px;
+  }
+  .end-dot{
+    width:26px;
+    height:26px;
+    border-radius:50%;
+    background:var(--card2);
+    color:var(--sub);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:11px;
+    font-weight:700;
+  }
+  .end-dot.done{
+    background:var(--green);
+    color:#fff;
+  }
+  .end-dot.active{
+    background:var(--accent);
+    color:#3a2b00;
+  }
+  .end-count-text{
+    font-size:13px;
+    color:var(--text);
+    font-weight:600;
+  }
+  .distance-row{
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
+    gap:8px;
+    margin-bottom:12px;
+  }
+  .distance-btn{
+    padding:10px 0;
+    border:2px solid transparent;
+    border-radius:12px;
+    background:var(--card2);
+    color:var(--sub);
+    font-size:14px;
+    font-weight:700;
+  }
+  .distance-btn.active{
+    background:var(--accent2);
+    color:#fff;
+    border-color:#7fd4ea;
+  }
+  .distance-btn:active{
+    transform:scale(0.96);
+  }
+  .limit-note{
+    font-size:12px;
+    text-align:center;
+    color:var(--sub);
+    margin-bottom:14px;
+  }
+  .limit-note.full{
+    color:var(--danger);
+    font-weight:700;
+  }
+  .buttons{
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
+    gap:10px;
+    margin-bottom:14px;
+  }
+  .score-btn{
+    min-height:64px;
+    border:none;
+    border-radius:14px;
+    font-size:22px;
+    font-weight:700;
+    background:var(--card2);
+    color:var(--text);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:14px 0;
+    transition:transform 0.06s ease, background 0.15s ease, opacity 0.15s ease;
+  }
+  .score-btn:active{
+    transform:scale(0.93);
+    background:var(--accent2);
+  }
+  .score-btn.x-btn{
+    background:linear-gradient(135deg,#ffd166,#ffb703);
+    color:#3a2b00;
+  }
+  .score-btn.x-btn:active{
+    background:#ffe8a3;
+  }
+  .score-btn.zero-btn{
+    background:#2a3247;
+    color:var(--sub);
+  }
+  .score-btn:disabled{
+    opacity:0.35;
+    pointer-events:none;
+  }
+  .actions{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:10px;
+    margin-bottom:10px;
+  }
+  .action-btn{
+    padding:14px;
+    border:none;
+    border-radius:12px;
+    font-size:14px;
+    font-weight:600;
+    background:var(--card2);
+    color:var(--text);
+  }
+  .action-btn:active{
+    transform:scale(0.96);
+  }
+  .action-btn.undo{
+    background:#3a3350;
+  }
+  .action-btn.newset{
+    background:var(--green);
+    color:#fff;
+  }
+  .action-btn.export{
+    background:var(--accent2);
+    color:#fff;
+  }
+  .action-btn.reset{
+    background:var(--danger);
+    color:#fff;
+  }
+  .action-btn:disabled{
+    opacity:0.4;
+    pointer-events:none;
+  }
+  .section-title{
+    font-size:14px;
+    color:var(--sub);
+    margin:20px 0 8px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+  }
+  .end-block{
+    background:var(--card);
+    border-radius:12px;
+    padding:10px 12px;
+    margin-bottom:8px;
+  }
+  .end-block-head{
+    display:flex;
+    justify-content:space-between;
+    font-size:12px;
+    color:var(--sub);
+    margin-bottom:6px;
+  }
+  .end-block-head b{
+    color:var(--text);
+  }
+  .history{
+    display:flex;
+    flex-wrap:wrap;
+    gap:6px;
+    background:var(--card2);
+    border-radius:10px;
+    padding:8px;
+    min-height:40px;
+  }
+  .stats + .history, .distance-row + .history{
+    background:var(--card);
+    padding:12px;
+  }
+  .chip{
+    background:#2a3550;
+    border-radius:8px;
+    padding:5px 6px 5px 9px;
+    font-size:13px;
+    font-weight:600;
+    display:flex;
+    align-items:center;
+    gap:6px;
+  }
+  .chip.x-chip{
+    background:var(--gold);
+    color:#3a2b00;
+  }
+  .chip-del{
+    border:none;
+    background:rgba(0,0,0,0.25);
+    color:inherit;
+    width:18px;
+    height:18px;
+    border-radius:50%;
+    font-size:11px;
+    line-height:1;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:0;
+  }
+  .chip.x-chip .chip-del{
+    background:rgba(0,0,0,0.15);
+  }
+  .empty-msg{
+    color:var(--sub);
+    font-size:13px;
+    padding:4px 0;
+  }
+  .past-session, .past-round{
+    background:var(--card);
+    border-radius:12px;
+    padding:12px 14px;
+    margin-bottom:10px;
+  }
+  .past-round summary{
+    list-style:none;
+    cursor:pointer;
+  }
+  .past-round summary::-webkit-details-marker{ display:none; }
+  .past-session-head, .past-round-head{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:6px;
+    gap:8px;
+  }
+  .past-session-date, .past-round-date{
+    font-size:13px;
+    font-weight:600;
+  }
+  .past-session-summary, .past-round-summary{
+    font-size:12px;
+    color:var(--sub);
+    margin-top:4px;
+    margin-bottom:8px;
+  }
+  .past-session .history{
+    padding:8px;
+    background:var(--card2);
+  }
+  .end-badges{
+    display:flex;
+    flex-wrap:wrap;
+    gap:6px;
+    margin-top:8px;
+  }
+  .end-badge{
+    background:var(--card2);
+    border-radius:8px;
+    padding:4px 8px;
+    font-size:11px;
+    color:var(--sub);
+  }
+  .past-round-details{
+    margin-top:10px;
+  }
+  .session-del, .round-del{
+    border:none;
+    background:var(--danger);
+    color:#fff;
+    font-size:11px;
+    font-weight:600;
+    border-radius:8px;
+    padding:6px 9px;
+    white-space:nowrap;
+  }
+
+  .modal-overlay{
+    display:none;
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,0.6);
+    align-items:center;
+    justify-content:center;
+    z-index:1000;
+    padding:20px;
+  }
+  .modal-overlay.show{ display:flex; }
+  .modal-box{
+    background:var(--card);
+    border-radius:16px;
+    padding:22px 20px;
+    max-width:340px;
+    width:100%;
+    text-align:center;
+    border:1px solid #2c3a54;
+  }
+  .modal-message{
+    font-size:15px;
+    line-height:1.5;
+    margin-bottom:18px;
+    white-space:pre-wrap;
+  }
+  .modal-buttons{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:10px;
+  }
+  .modal-btn{
+    padding:12px;
+    border:none;
+    border-radius:10px;
+    font-size:14px;
+    font-weight:700;
+  }
+  .modal-btn.cancel{
+    background:var(--card2);
+    color:var(--text);
+  }
+  .modal-btn.confirm{
+    background:var(--danger);
+    color:#fff;
+  }
+  .toast{
+    display:none;
+    position:fixed;
+    left:50%;
+    bottom:24px;
+    transform:translateX(-50%);
+    background:#222c3e;
+    color:var(--text);
+    padding:12px 18px;
+    border-radius:12px;
+    font-size:13px;
+    z-index:1001;
+    max-width:80%;
+    text-align:center;
+    box-shadow:0 4px 20px rgba(0,0,0,0.4);
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🎯 アーチェリー得点計算</h1>
+  <div class="save-status" id="saveStatus"></div>
+
+  <div class="mode-switch">
+    <button class="mode-btn" id="modeBtn6" onclick="setMode('6')">6本ずつ</button>
+    <button class="mode-btn" id="modeBtn36" onclick="setMode('36')">36本(6立)</button>
+  </div>
+
+  <!-- ============ 6本ずつバージョン ============ -->
+  <div id="mode6Wrap">
+    <div class="stats">
+      <div class="stat-card total">
+        <div class="stat-label">今回の合計点</div>
+        <div class="stat-value" id="totalScore6">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">本数</div>
+        <div class="stat-value" id="arrowCount6">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">X本数</div>
+        <div class="stat-value" id="xCount6">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">平均点</div>
+        <div class="stat-value" id="avgScore6">0.0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">最高得点(1本)</div>
+        <div class="stat-value" id="bestScore6">-</div>
+      </div>
+    </div>
+
+    <div class="distance-row" id="distanceRow6"></div>
+
+    <div class="session-time" id="sessionTime6"></div>
+    <div class="limit-note" id="limitNote6">0 / 6 本</div>
+
+    <div class="buttons" id="buttonGrid6"></div>
+
+    <div class="actions">
+      <button class="action-btn undo" onclick="undo6()">↩ 一つ戻す</button>
+      <button class="action-btn newset" onclick="startNewSet6()">✅ この記録を保存して次へ</button>
+    </div>
+    <div class="actions">
+      <button class="action-btn export" onclick="exportCSV6()">📄 CSVで書き出す</button>
+      <button class="action-btn reset" onclick="resetAll6()">🗑 全部消す</button>
+    </div>
+
+    <div class="section-title">今回の得点（点数の小さい順）</div>
+    <div class="history" id="history6">
+      <span class="empty-msg">まだ記録がありません</span>
+    </div>
+
+    <div class="section-title">📚 過去の記録</div>
+    <div id="pastSessions6">
+      <span class="empty-msg">まだ過去の記録はありません</span>
+    </div>
+  </div>
+
+  <!-- ============ 36本(6立)バージョン ============ -->
+  <div id="mode36Wrap" class="hidden">
+    <div class="stats">
+      <div class="stat-card total">
+        <div class="stat-label">今ラウンドの合計点</div>
+        <div class="stat-value" id="totalScore36">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">本数</div>
+        <div class="stat-value" id="arrowCount36">0 / 36</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">X本数</div>
+        <div class="stat-value" id="xCount36">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">平均点</div>
+        <div class="stat-value" id="avgScore36">0.0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">最高得点(1本)</div>
+        <div class="stat-value" id="bestScore36">-</div>
+      </div>
+    </div>
+
+    <div class="distance-row" id="distanceRow36"></div>
+
+    <div class="end-progress">
+      <div class="end-progress-title">立(エンド)の進み具合</div>
+      <div class="end-dots" id="endDots36"></div>
+      <div class="end-count-text" id="endCountText36">1立目：0 / 6 本</div>
+    </div>
+
+    <div class="buttons" id="buttonGrid36"></div>
+
+    <div class="actions">
+      <button class="action-btn undo" onclick="undo36()">↩ 一つ戻す</button>
+      <button class="action-btn newset" id="nextEndBtn36" onclick="nextEnd36()">次の立へ ▶</button>
+    </div>
+    <div class="actions">
+      <button class="action-btn export" onclick="exportCSV36()">📄 CSVで書き出す</button>
+      <button class="action-btn reset" onclick="resetCurrentRound36()">🗑 このラウンドを全部消す</button>
+    </div>
+
+    <div class="section-title">今ラウンドの記録(各立ごと)</div>
+    <div id="currentEnds36"></div>
+
+    <div class="section-title">📚 過去のラウンド(36射)</div>
+    <div id="pastRoundsList36">
+      <span class="empty-msg">まだ過去のラウンドはありません</span>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal-box">
+    <div class="modal-message" id="modalMessage"></div>
+    <div class="modal-buttons" id="modalButtons">
+      <button class="modal-btn cancel" id="modalCancelBtn">キャンセル</button>
+      <button class="modal-btn confirm" id="modalConfirmBtn">削除する</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  const DISTANCES = ['18m','30m','50m','70m'];
+
+  /* ---------- 独自ダイアログ ---------- */
+  function showConfirm(message, confirmLabel){
+    return new Promise((resolve)=>{
+      const overlay = document.getElementById('modalOverlay');
+      const msgEl = document.getElementById('modalMessage');
+      const cancelBtn = document.getElementById('modalCancelBtn');
+      const confirmBtn = document.getElementById('modalConfirmBtn');
+      msgEl.textContent = message;
+      confirmBtn.textContent = confirmLabel || '削除する';
+      overlay.classList.add('show');
+      function cleanup(result){
+        overlay.classList.remove('show');
+        confirmBtn.removeEventListener('click', onYes);
+        cancelBtn.removeEventListener('click', onNo);
+        resolve(result);
+      }
+      function onYes(){ cleanup(true); }
+      function onNo(){ cleanup(false); }
+      confirmBtn.addEventListener('click', onYes);
+      cancelBtn.addEventListener('click', onNo);
+    });
+  }
+  function showToast(message){
+    const t = document.getElementById('toast');
+    t.textContent = message;
+    t.style.display = 'block';
+    clearTimeout(t._timer);
+    t._timer = setTimeout(()=>{ t.style.display = 'none'; }, 2500);
+  }
+
+  /* ---------- 保存(PWA単体で動くのでlocalStorageのみ) ---------- */
+  const hasClaudeStorage = (typeof window.storage !== 'undefined') && window.storage && typeof window.storage.get === 'function';
+  async function storageGet(key){
+    if(hasClaudeStorage){
+      try{ return await window.storage.get(key, false); }catch(e){ return null; }
+    } else {
+      try{
+        const v = localStorage.getItem(key);
+        return v ? { key, value:v, shared:false } : null;
+      }catch(e){ return null; }
+    }
+  }
+  async function storageSet(key, value){
+    if(hasClaudeStorage){
+      try{ return await window.storage.set(key, value, false); }catch(e){ return null; }
+    } else {
+      try{ localStorage.setItem(key, value); return { key, value, shared:false }; }catch(e){ return null; }
+    }
+  }
+
+  function nowLabel(){
+    return new Date().toLocaleString('ja-JP', {
+      year:'numeric', month:'2-digit', day:'2-digit',
+      hour:'2-digit', minute:'2-digit', second:'2-digit'
+    });
+  }
+
+  function saveStatusText(msg, holdMs){
+    const statusEl = document.getElementById('saveStatus');
+    statusEl.textContent = msg;
+    if(holdMs){ setTimeout(()=>{ if(statusEl.textContent===msg) statusEl.textContent=''; }, holdMs); }
+  }
+
+  /* ---------- 共通の集計・チップ描画 ---------- */
+  function summarize(arrows){
+    const total = arrows.reduce((s,a)=>s+a.value,0);
+    const count = arrows.length;
+    const xCount = arrows.filter(a=>a.label==='X').length;
+    const avg = count ? (total/count) : 0;
+    const best = count ? Math.max(...arrows.map(a=>a.value)) : null;
+    return {total, count, xCount, avg, best};
+  }
+  function sortedWithIndex(arrows){
+    return arrows.map((a, idx)=>({...a, idx})).sort((a,b)=> a.value - b.value);
+  }
+  function renderChips(container, arrows, onDelete){
+    container.innerHTML = '';
+    if(arrows.length === 0){
+      container.innerHTML = '<span class="empty-msg">まだ記録がありません</span>';
+      return;
+    }
+    sortedWithIndex(arrows).forEach((a)=>{
+      const chip = document.createElement('span');
+      chip.className = 'chip' + (a.label==='X' ? ' x-chip' : '');
+      const textSpan = document.createElement('span');
+      textSpan.textContent = (a.label==='0' ? 'M' : a.label);
+      chip.appendChild(textSpan);
+      const delBtn = document.createElement('button');
+      delBtn.className = 'chip-del';
+      delBtn.textContent = '×';
+      delBtn.addEventListener('click', ()=> onDelete(a.idx));
+      chip.appendChild(delBtn);
+      container.appendChild(chip);
+    });
+  }
+
+  /* ============================================================
+     モード切り替え
+     ============================================================ */
+  let currentMode = '6';
+  function setMode(mode){
+    currentMode = mode;
+    document.getElementById('mode6Wrap').classList.toggle('hidden', mode !== '6');
+    document.getElementById('mode36Wrap').classList.toggle('hidden', mode !== '36');
+    document.getElementById('modeBtn6').classList.toggle('active', mode === '6');
+    document.getElementById('modeBtn36').classList.toggle('active', mode === '36');
+  }
+
+  /* ============================================================
+     6本ずつバージョン
+     ============================================================ */
+  const STORAGE_KEY6 = 'archery-all-sessions';
+  const MAX_ARROWS6 = 6;
+  let allSessions6 = [];
+  let current6 = null;
+
+  const buttonGrid6 = document.getElementById('buttonGrid6');
+  const order = ['X','10','9','8','7','6','5','4','3','2','1','0'];
+  order.forEach(label=>{
+    const btn = document.createElement('button');
+    btn.className = 'score-btn';
+    if(label === 'X') btn.classList.add('x-btn');
+    if(label === '0') btn.classList.add('zero-btn');
+    btn.textContent = label === '0' ? 'M' : label;
+    btn.addEventListener('click', ()=> addScore6(label));
+    buttonGrid6.appendChild(btn);
+  });
+
+  const distanceRow6 = document.getElementById('distanceRow6');
+  DISTANCES.forEach(d=>{
+    const btn = document.createElement('button');
+    btn.className = 'distance-btn';
+    btn.dataset.distance = d;
+    btn.textContent = d;
+    btn.addEventListener('click', ()=> selectDistance6(d));
+    distanceRow6.appendChild(btn);
+  });
+
+  async function selectDistance6(d){
+    current6.distance = d;
+    render6();
+    await saveData6();
+  }
+
+  function newSession6(distance){
+    return { startedAt: nowLabel(), distance: distance || '30m', arrows: [] };
+  }
+
+  async function loadData6(){
+    try{
+      const result = await storageGet(STORAGE_KEY6);
+      if(result && result.value){
+        const parsed = JSON.parse(result.value);
+        allSessions6 = parsed.pastSessions || [];
+        current6 = parsed.current || newSession6();
+      } else {
+        allSessions6 = [];
+        current6 = newSession6();
+      }
+    }catch(e){
+      allSessions6 = [];
+      current6 = newSession6();
+    }
+    render6();
+  }
+
+  async function saveData6(){
+    try{
+      const payload = JSON.stringify({ pastSessions: allSessions6, current: current6 });
+      const result = await storageSet(STORAGE_KEY6, payload);
+      saveStatusText(result ? '✔ 保存しました' : '⚠ 保存に失敗しました', 1200);
+    }catch(e){
+      saveStatusText('⚠ 保存エラー：' + e.message, 2000);
+    }
+  }
+
+  async function addScore6(label){
+    if(current6.arrows.length >= MAX_ARROWS6){
+      showToast('1セットは' + MAX_ARROWS6 + '本までです。「保存して次へ」を押してください。');
+      return;
+    }
+    const value = label === 'X' ? 10 : parseInt(label,10);
+    current6.arrows.push({label, value});
+    render6();
+    if(navigator.vibrate) navigator.vibrate(15);
+    await saveData6();
+  }
+
+  async function undo6(){
+    if(current6.arrows.length === 0) return;
+    current6.arrows.pop();
+    render6();
+    await saveData6();
+  }
+
+  async function deleteCurrentArrow6(idx){
+    const ok = await showConfirm('この1本の記録を削除しますか？');
+    if(!ok) return;
+    current6.arrows.splice(idx, 1);
+    render6();
+    await saveData6();
+  }
+
+  async function deletePastArrow6(sessionIdx, arrowIdx){
+    const ok = await showConfirm('この1本の記録を削除しますか？');
+    if(!ok) return;
+    allSessions6[sessionIdx].arrows.splice(arrowIdx, 1);
+    render6();
+    await saveData6();
+  }
+
+  async function deletePastSession6(sessionIdx){
+    const ok = await showConfirm('この記録をまとめて削除しますか？\nこの操作は取り消せません。');
+    if(!ok) return;
+    allSessions6.splice(sessionIdx, 1);
+    render6();
+    await saveData6();
+  }
+
+  async function startNewSet6(){
+    if(current6.arrows.length === 0){
+      showToast('記録が0本なので保存できません。');
+      return;
+    }
+    current6.endedAt = nowLabel();
+    allSessions6.unshift(current6);
+    current6 = newSession6(current6.distance);
+    render6();
+    await saveData6();
+  }
+
+  async function resetAll6(){
+    if(current6.arrows.length === 0){
+      showToast('今回の記録はまだ0本です。');
+      return;
+    }
+    const ok = await showConfirm('今回の記録（進行中のセット）を全部消しますか？\n過去に保存した記録は消えません。', '全部消す');
+    if(!ok) return;
+    current6.arrows = [];
+    render6();
+    await saveData6();
+  }
+
+  function updateButtonState6(){
+    const full = current6.arrows.length >= MAX_ARROWS6;
+    buttonGrid6.querySelectorAll('.score-btn').forEach(btn=>{ btn.disabled = full; });
+    const noteEl = document.getElementById('limitNote6');
+    noteEl.textContent = current6.arrows.length + ' / ' + MAX_ARROWS6 + ' 本';
+    noteEl.classList.toggle('full', full);
+    if(full) noteEl.textContent += '（このセットは終了です。保存して次へ進んでください）';
+  }
+
+  function render6(){
+    const s = summarize(current6.arrows);
+    document.getElementById('totalScore6').textContent = s.total;
+    document.getElementById('arrowCount6').textContent = s.count;
+    document.getElementById('xCount6').textContent = s.xCount;
+    document.getElementById('avgScore6').textContent = s.avg.toFixed(2);
+    document.getElementById('bestScore6').textContent = s.best === null ? '-' : s.best;
+    document.getElementById('sessionTime6').textContent = current6.arrows.length > 0 ? '記録中…' : '';
+
+    document.querySelectorAll('#distanceRow6 .distance-btn').forEach(btn=>{
+      btn.classList.toggle('active', btn.dataset.distance === current6.distance);
+    });
+
+    updateButtonState6();
+    renderChips(document.getElementById('history6'), current6.arrows, (idx)=> deleteCurrentArrow6(idx));
+
+    const pastEl = document.getElementById('pastSessions6');
+    pastEl.innerHTML = '';
+    if(allSessions6.length === 0){
+      pastEl.innerHTML = '<span class="empty-msg">まだ過去の記録はありません</span>';
+    } else {
+      allSessions6.forEach((sess, sessionIdx)=>{
+        const ps = summarize(sess.arrows);
+        const box = document.createElement('div');
+        box.className = 'past-session';
+
+        const head = document.createElement('div');
+        head.className = 'past-session-head';
+        const dateSpan = document.createElement('span');
+        dateSpan.className = 'past-session-date';
+        dateSpan.textContent = (sess.distance ? '【' + sess.distance + '】' : '') + (sess.endedAt || sess.startedAt);
+        const delSessionBtn = document.createElement('button');
+        delSessionBtn.className = 'session-del';
+        delSessionBtn.textContent = '🗑 この記録を削除';
+        delSessionBtn.addEventListener('click', ()=> deletePastSession6(sessionIdx));
+        head.appendChild(dateSpan);
+        head.appendChild(delSessionBtn);
+        box.appendChild(head);
+
+        const summary = document.createElement('div');
+        summary.className = 'past-session-summary';
+        summary.textContent = `合計 ${ps.total}点 / ${ps.count}本 / X:${ps.xCount}本 / 平均 ${ps.avg.toFixed(2)}`;
+        box.appendChild(summary);
+
+        const chipsWrap = document.createElement('div');
+        chipsWrap.className = 'history';
+        renderChips(chipsWrap, sess.arrows, (arrowIdx)=> deletePastArrow6(sessionIdx, arrowIdx));
+        box.appendChild(chipsWrap);
+
+        pastEl.appendChild(box);
+      });
+    }
+  }
+
+  function exportCSV6(){
+    let rows = [['距離','日時(6本合計を保存した時)','得点(X=10)','X判定']];
+    const all = [...allSessions6];
+    if(current6.arrows.length > 0) all.unshift({...current6, endedAt:'(進行中)'});
+    all.forEach(sess=>{
+      sess.arrows.forEach(a=>{
+        rows.push([sess.distance || '', sess.endedAt || sess.startedAt, a.value, a.label==='X'?'X':'']);
+      });
+    });
+    downloadCSV(rows, 'archery_records_' + new Date().toISOString().slice(0,10) + '.csv');
+  }
+
+  /* ============================================================
+     36本(6立)バージョン
+     ============================================================ */
+  const STORAGE_KEY36 = 'archery-36-rounds';
+  const ARROWS_PER_END = 6;
+  const ENDS_PER_ROUND = 6;
+  let pastRounds36 = [];
+  let current36 = null;
+
+  const buttonGrid36 = document.getElementById('buttonGrid36');
+  order.forEach(label=>{
+    const btn = document.createElement('button');
+    btn.className = 'score-btn';
+    if(label === 'X') btn.classList.add('x-btn');
+    if(label === '0') btn.classList.add('zero-btn');
+    btn.textContent = label === '0' ? 'M' : label;
+    btn.addEventListener('click', ()=> addScore36(label));
+    buttonGrid36.appendChild(btn);
+  });
+
+  const distanceRow36 = document.getElementById('distanceRow36');
+  DISTANCES.forEach(d=>{
+    const btn = document.createElement('button');
+    btn.className = 'distance-btn';
+    btn.dataset.distance = d;
+    btn.textContent = d;
+    btn.addEventListener('click', ()=> selectDistance36(d));
+    distanceRow36.appendChild(btn);
+  });
+
+  async function selectDistance36(d){
+    current36.distance = d;
+    render36();
+    await saveData36();
+  }
+
+  function newRound36(distance){
+    return { startedAt: nowLabel(), distance: distance || '30m', ends: [[]] };
+  }
+
+  async function loadData36(){
+    try{
+      const result = await storageGet(STORAGE_KEY36);
+      if(result && result.value){
+        const parsed = JSON.parse(result.value);
+        pastRounds36 = parsed.pastRounds || [];
+        current36 = parsed.current || newRound36();
+      } else {
+        pastRounds36 = [];
+        current36 = newRound36();
+      }
+    }catch(e){
+      pastRounds36 = [];
+      current36 = newRound36();
+    }
+    render36();
+  }
+
+  async function saveData36(){
+    try{
+      const payload = JSON.stringify({ pastRounds: pastRounds36, current: current36 });
+      const result = await storageSet(STORAGE_KEY36, payload);
+      saveStatusText(result ? '✔ 保存しました' : '⚠ 保存に失敗しました', 1200);
+    }catch(e){
+      saveStatusText('⚠ 保存エラー：' + e.message, 2000);
+    }
+  }
+
+  function currentEndIndex36(){ return current36.ends.length - 1; }
+  function currentEndArrows36(){ return current36.ends[currentEndIndex36()]; }
+
+  async function addScore36(label){
+    const arrows = currentEndArrows36();
+    if(arrows.length >= ARROWS_PER_END){
+      showToast('この立は' + ARROWS_PER_END + '本で終わりです。「次の立へ」を押してください。');
+      return;
+    }
+    const value = label === 'X' ? 10 : parseInt(label,10);
+    arrows.push({label, value});
+    render36();
+    if(navigator.vibrate) navigator.vibrate(15);
+    await saveData36();
+  }
+
+  async function undo36(){
+    const arrows = currentEndArrows36();
+    if(arrows.length === 0){
+      if(currentEndIndex36() === 0){ return; }
+      showToast('この立はまだ0本です。前の立の記録を消したい場合は「×」で削除してください。');
+      return;
+    }
+    arrows.pop();
+    render36();
+    await saveData36();
+  }
+
+  async function nextEnd36(){
+    const arrows = currentEndArrows36();
+    if(arrows.length < ARROWS_PER_END){
+      showToast('この立はまだ' + arrows.length + '/' + ARROWS_PER_END + '本です。6本入れてから進んでください。');
+      return;
+    }
+    if(currentEndIndex36() < ENDS_PER_ROUND - 1){
+      current36.ends.push([]);
+      render36();
+      await saveData36();
+    } else {
+      await finishRound36();
+    }
+  }
+
+  async function finishRound36(){
+    current36.endedAt = nowLabel();
+    pastRounds36.unshift(current36);
+    current36 = newRound36(current36.distance);
+    render36();
+    await saveData36();
+    showToast('🏁 36射のラウンドを保存しました！');
+  }
+
+  async function resetCurrentRound36(){
+    const totalArrows = current36.ends.reduce((s,e)=>s+e.length,0);
+    if(totalArrows === 0){
+      showToast('今ラウンドの記録はまだ0本です。');
+      return;
+    }
+    const ok = await showConfirm('今ラウンド(進行中の36射)を全部消しますか？\n保存済みの過去ラウンドは消えません。', '全部消す');
+    if(!ok) return;
+    current36 = newRound36(current36.distance);
+    render36();
+    await saveData36();
+  }
+
+  async function deleteArrow36(ends, endIdx, arrowIdx, onSaved){
+    const ok = await showConfirm('この1本の記録を削除しますか？');
+    if(!ok) return;
+    ends[endIdx].splice(arrowIdx, 1);
+    render36();
+    await onSaved();
+  }
+
+  async function deletePastRound36(idx){
+    const ok = await showConfirm('この36射のラウンドをまとめて削除しますか？\nこの操作は取り消せません。', '削除する');
+    if(!ok) return;
+    pastRounds36.splice(idx, 1);
+    render36();
+    await saveData36();
+  }
+
+  function flatten36(ends){
+    return ends.reduce((acc,e)=>acc.concat(e), []);
+  }
+
+  function render36(){
+    const allArrows = flatten36(current36.ends);
+    const s = summarize(allArrows);
+    document.getElementById('totalScore36').textContent = s.total;
+    document.getElementById('arrowCount36').textContent = s.count + ' / 36';
+    document.getElementById('xCount36').textContent = s.xCount;
+    document.getElementById('avgScore36').textContent = s.avg.toFixed(2);
+    document.getElementById('bestScore36').textContent = s.best === null ? '-' : s.best;
+
+    document.querySelectorAll('#distanceRow36 .distance-btn').forEach(btn=>{
+      btn.classList.toggle('active', btn.dataset.distance === current36.distance);
+    });
+
+    const dotsEl = document.getElementById('endDots36');
+    dotsEl.innerHTML = '';
+    for(let i=0;i<ENDS_PER_ROUND;i++){
+      const dot = document.createElement('div');
+      dot.className = 'end-dot';
+      if(i < currentEndIndex36()) dot.classList.add('done');
+      else if(i === currentEndIndex36()) dot.classList.add('active');
+      dot.textContent = (i+1);
+      dotsEl.appendChild(dot);
+    }
+    const activeArrows = currentEndArrows36();
+    document.getElementById('endCountText36').textContent =
+      (currentEndIndex36()+1) + '立目：' + activeArrows.length + ' / ' + ARROWS_PER_END + ' 本';
+
+    const endFull = activeArrows.length >= ARROWS_PER_END;
+    buttonGrid36.querySelectorAll('.score-btn').forEach(btn=>{ btn.disabled = endFull; });
+
+    const nextBtn = document.getElementById('nextEndBtn36');
+    nextBtn.disabled = !endFull;
+    nextBtn.textContent = (currentEndIndex36() === ENDS_PER_ROUND - 1)
+      ? '🏁 ラウンドを保存する(36本目)'
+      : '次の立へ ▶ (' + (currentEndIndex36()+2) + '立目)';
+
+    const endsEl = document.getElementById('currentEnds36');
+    endsEl.innerHTML = '';
+    current36.ends.forEach((endArrows, endIdx)=>{
+      const es = summarize(endArrows);
+      const block = document.createElement('div');
+      block.className = 'end-block';
+      const head = document.createElement('div');
+      head.className = 'end-block-head';
+      head.innerHTML = `<span><b>${endIdx+1}立目</b></span><span>${es.count}/${ARROWS_PER_END}本・${es.total}点</span>`;
+      block.appendChild(head);
+      const chipsWrap = document.createElement('div');
+      chipsWrap.className = 'history';
+      renderChips(chipsWrap, endArrows, (arrowIdx)=> deleteArrow36(current36.ends, endIdx, arrowIdx, saveData36));
+      block.appendChild(chipsWrap);
+      endsEl.appendChild(block);
+    });
+
+    const pastEl = document.getElementById('pastRoundsList36');
+    pastEl.innerHTML = '';
+    if(pastRounds36.length === 0){
+      pastEl.innerHTML = '<span class="empty-msg">まだ過去のラウンドはありません</span>';
+    } else {
+      pastRounds36.forEach((round, roundIdx)=>{
+        const allR = flatten36(round.ends);
+        const rs = summarize(allR);
+        const box = document.createElement('details');
+        box.className = 'past-round';
+
+        const summaryEl = document.createElement('summary');
+        const head = document.createElement('div');
+        head.className = 'past-round-head';
+        const dateSpan = document.createElement('span');
+        dateSpan.className = 'past-round-date';
+        dateSpan.textContent = (round.distance ? '【' + round.distance + '】' : '') + (round.endedAt || round.startedAt);
+        const delBtn = document.createElement('button');
+        delBtn.className = 'round-del';
+        delBtn.textContent = '🗑 削除';
+        delBtn.addEventListener('click', (e)=>{ e.preventDefault(); deletePastRound36(roundIdx); });
+        head.appendChild(dateSpan);
+        head.appendChild(delBtn);
+        summaryEl.appendChild(head);
+
+        const summaryText = document.createElement('div');
+        summaryText.className = 'past-round-summary';
+        summaryText.textContent = `合計 ${rs.total}点 / ${rs.count}本 / X:${rs.xCount}本 / 平均 ${rs.avg.toFixed(2)}`;
+        summaryEl.appendChild(summaryText);
+
+        const badges = document.createElement('div');
+        badges.className = 'end-badges';
+        round.ends.forEach((e, i)=>{
+          const es = summarize(e);
+          const b = document.createElement('span');
+          b.className = 'end-badge';
+          b.textContent = (i+1) + '立:' + es.total + '点';
+          badges.appendChild(b);
+        });
+        summaryEl.appendChild(badges);
+
+        box.appendChild(summaryEl);
+
+        const details = document.createElement('div');
+        details.className = 'past-round-details';
+        round.ends.forEach((endArrows, endIdx)=>{
+          const es = summarize(endArrows);
+          const block = document.createElement('div');
+          block.className = 'end-block';
+          const eHead = document.createElement('div');
+          eHead.className = 'end-block-head';
+          eHead.innerHTML = `<span><b>${endIdx+1}立目</b></span><span>${es.count}本・${es.total}点</span>`;
+          block.appendChild(eHead);
+          const chipsWrap = document.createElement('div');
+          chipsWrap.className = 'history';
+          renderChips(chipsWrap, endArrows, (arrowIdx)=> deleteArrow36(round.ends, endIdx, arrowIdx, saveData36));
+          block.appendChild(chipsWrap);
+          details.appendChild(block);
+        });
+        box.appendChild(details);
+
+        pastEl.appendChild(box);
+      });
+    }
+  }
+
+  function exportCSV36(){
+    let rows = [['距離','日時(ラウンド保存時)','立(エンド)','得点(X=10)','X判定']];
+    const allRounds = [...pastRounds36];
+    const currentHasArrows = flatten36(current36.ends).length > 0;
+    if(currentHasArrows) allRounds.unshift({...current36, endedAt:'(進行中)'});
+    allRounds.forEach(round=>{
+      round.ends.forEach((endArrows, endIdx)=>{
+        endArrows.forEach(a=>{
+          rows.push([round.distance || '', round.endedAt || round.startedAt, (endIdx+1)+'立目', a.value, a.label==='X'?'X':'']);
+        });
+      });
+    });
+    downloadCSV(rows, 'archery_36_records_' + new Date().toISOString().slice(0,10) + '.csv');
+  }
+
+  /* ---------- 共通CSV書き出し ---------- */
+  function downloadCSV(rows, filename){
+    const csvContent = rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+    const bom = '\uFEFF';
+    const blob = new Blob([bom + csvContent], {type:'text/csv;charset=utf-8;'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  /* ---------- Service Worker登録(PWAのオフライン対応) ---------- */
+  if('serviceWorker' in navigator){
+    window.addEventListener('load', ()=>{
+      navigator.serviceWorker.register('sw.js').catch(()=>{});
+    });
+  }
+
+  /* ---------- 初期化 ---------- */
+  setMode('6');
+  loadData6();
+  loadData36();
+</script>
+</body>
+</html>
