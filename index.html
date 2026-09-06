@@ -58,7 +58,7 @@
   }
   .mode-switch{
     display:grid;
-    grid-template-columns:1fr 1fr;
+    grid-template-columns:1fr 1fr 1fr;
     gap:8px;
     margin-bottom:16px;
     background:var(--card);
@@ -66,12 +66,12 @@
     border-radius:14px;
   }
   .mode-btn{
-    padding:10px 0;
+    padding:10px 4px;
     border:none;
     border-radius:10px;
     background:transparent;
     color:var(--sub);
-    font-size:14px;
+    font-size:13px;
     font-weight:700;
   }
   .mode-btn.active{
@@ -232,6 +232,50 @@
     opacity:0.35;
     pointer-events:none;
   }
+  /* ---- 本数カウントモード専用 ---- */
+  .count-display{
+    background:linear-gradient(135deg,#22304a,#16202f);
+    border:1px solid #2c3a54;
+    border-radius:18px;
+    padding:28px 16px;
+    text-align:center;
+    margin-bottom:16px;
+  }
+  .count-display .count-label{
+    font-size:13px;
+    color:var(--sub);
+    margin-bottom:6px;
+  }
+  .count-display .count-value{
+    font-size:56px;
+    font-weight:700;
+    color:var(--accent);
+    line-height:1;
+  }
+  .count-buttons{
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
+    gap:10px;
+    margin-bottom:14px;
+  }
+  .count-btn{
+    min-height:60px;
+    border:none;
+    border-radius:14px;
+    font-size:18px;
+    font-weight:700;
+    background:var(--card2);
+    color:var(--text);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+  .count-btn:active{ transform:scale(0.93); }
+  .count-btn.plus{ background:var(--green); color:#fff; }
+  .count-btn.plus-big{ background:var(--accent2); color:#fff; }
+  .count-btn.minus{ background:var(--danger); color:#fff; }
+  .count-btn.minus:disabled{ opacity:0.35; pointer-events:none; }
+
   .actions{
     display:grid;
     grid-template-columns:1fr 1fr;
@@ -473,6 +517,7 @@
   <div class="mode-switch">
     <button class="mode-btn" id="modeBtn6" onclick="setMode('6')">6本ずつ</button>
     <button class="mode-btn" id="modeBtn36" onclick="setMode('36')">36本(6立)</button>
+    <button class="mode-btn" id="modeBtnCount" onclick="setMode('count')">本数カウント</button>
   </div>
 
   <!-- ============ 6本ずつバージョン ============ -->
@@ -577,6 +622,33 @@
     <div class="section-title">📚 過去のラウンド(36射)</div>
     <div id="pastRoundsList36">
       <span class="empty-msg">まだ過去のラウンドはありません</span>
+    </div>
+  </div>
+
+  <!-- ============ 本数カウントバージョン(点数は付けず、本数だけ数える) ============ -->
+  <div id="modeCountWrap" class="hidden">
+    <div class="distance-row" id="distanceRowCount"></div>
+
+    <div class="count-display">
+      <div class="count-label">今回打った本数</div>
+      <div class="count-value" id="countValue">0</div>
+    </div>
+
+    <div class="count-buttons">
+      <button class="count-btn minus" id="countMinus1" onclick="addCount(-1)">−1</button>
+      <button class="count-btn plus" onclick="addCount(1)">+1</button>
+      <button class="count-btn plus" onclick="addCount(3)">+3</button>
+      <button class="count-btn plus-big" onclick="addCount(6)">+6</button>
+    </div>
+
+    <div class="actions">
+      <button class="action-btn newset" onclick="startNewSetCount()">✅ この本数を保存して次へ</button>
+      <button class="action-btn reset" onclick="resetAllCount()">🗑 今回の本数を0に戻す</button>
+    </div>
+
+    <div class="section-title">📚 過去の記録(本数カウント)</div>
+    <div id="pastSessionsCount">
+      <span class="empty-msg">まだ過去の記録はありません</span>
     </div>
   </div>
 </div>
@@ -700,8 +772,10 @@
     currentMode = mode;
     document.getElementById('mode6Wrap').classList.toggle('hidden', mode !== '6');
     document.getElementById('mode36Wrap').classList.toggle('hidden', mode !== '36');
+    document.getElementById('modeCountWrap').classList.toggle('hidden', mode !== 'count');
     document.getElementById('modeBtn6').classList.toggle('active', mode === '6');
     document.getElementById('modeBtn36').classList.toggle('active', mode === '36');
+    document.getElementById('modeBtnCount').classList.toggle('active', mode === 'count');
   }
 
   /* ============================================================
@@ -1216,6 +1290,140 @@
     URL.revokeObjectURL(url);
   }
 
+  /* ============================================================
+     本数カウントバージョン(点数は付けず、本数だけ数える)
+     ============================================================ */
+  const STORAGE_KEY_COUNT = 'archery-count-sessions';
+  let allSessionsCount = [];
+  let currentCount = null;
+
+  const distanceRowCount = document.getElementById('distanceRowCount');
+  DISTANCES.forEach(d=>{
+    const btn = document.createElement('button');
+    btn.className = 'distance-btn';
+    btn.dataset.distance = d;
+    btn.textContent = d;
+    btn.addEventListener('click', ()=> selectDistanceCount(d));
+    distanceRowCount.appendChild(btn);
+  });
+
+  async function selectDistanceCount(d){
+    currentCount.distance = d;
+    renderCount();
+    await saveDataCount();
+  }
+
+  function newSessionCount(distance){
+    return { startedAt: nowLabel(), distance: distance || '30m', count: 0 };
+  }
+
+  async function loadDataCount(){
+    try{
+      const result = await storageGet(STORAGE_KEY_COUNT);
+      if(result && result.value){
+        const parsed = JSON.parse(result.value);
+        allSessionsCount = parsed.pastSessions || [];
+        currentCount = parsed.current || newSessionCount();
+      } else {
+        allSessionsCount = [];
+        currentCount = newSessionCount();
+      }
+    }catch(e){
+      allSessionsCount = [];
+      currentCount = newSessionCount();
+    }
+    renderCount();
+  }
+
+  async function saveDataCount(){
+    try{
+      const payload = JSON.stringify({ pastSessions: allSessionsCount, current: currentCount });
+      const result = await storageSet(STORAGE_KEY_COUNT, payload);
+      saveStatusText(result ? '✔ 保存しました' : '⚠ 保存に失敗しました', 1200);
+    }catch(e){
+      saveStatusText('⚠ 保存エラー：' + e.message, 2000);
+    }
+  }
+
+  async function addCount(delta){
+    currentCount.count = Math.max(0, currentCount.count + delta);
+    renderCount();
+    if(navigator.vibrate) navigator.vibrate(15);
+    await saveDataCount();
+  }
+
+  async function startNewSetCount(){
+    if(currentCount.count <= 0){
+      showToast('本数が0なので保存できません。');
+      return;
+    }
+    currentCount.endedAt = nowLabel();
+    allSessionsCount.unshift(currentCount);
+    currentCount = newSessionCount(currentCount.distance);
+    renderCount();
+    await saveDataCount();
+  }
+
+  async function resetAllCount(){
+    if(currentCount.count <= 0){
+      showToast('今回の本数はまだ0です。');
+      return;
+    }
+    const ok = await showConfirm('今回の本数を0に戻しますか？\n過去に保存した記録は消えません。', '0に戻す');
+    if(!ok) return;
+    currentCount.count = 0;
+    renderCount();
+    await saveDataCount();
+  }
+
+  async function deletePastSessionCount(idx){
+    const ok = await showConfirm('この記録を削除しますか？\nこの操作は取り消せません。');
+    if(!ok) return;
+    allSessionsCount.splice(idx, 1);
+    renderCount();
+    await saveDataCount();
+  }
+
+  function renderCount(){
+    document.getElementById('countValue').textContent = currentCount.count;
+    document.getElementById('countMinus1').disabled = currentCount.count <= 0;
+
+    document.querySelectorAll('#distanceRowCount .distance-btn').forEach(btn=>{
+      btn.classList.toggle('active', btn.dataset.distance === currentCount.distance);
+    });
+
+    const pastEl = document.getElementById('pastSessionsCount');
+    pastEl.innerHTML = '';
+    if(allSessionsCount.length === 0){
+      pastEl.innerHTML = '<span class="empty-msg">まだ過去の記録はありません</span>';
+    } else {
+      allSessionsCount.forEach((sess, idx)=>{
+        const box = document.createElement('div');
+        box.className = 'past-session';
+
+        const head = document.createElement('div');
+        head.className = 'past-session-head';
+        const dateSpan = document.createElement('span');
+        dateSpan.className = 'past-session-date';
+        dateSpan.textContent = (sess.distance ? '【' + sess.distance + '】' : '') + (sess.endedAt || sess.startedAt);
+        const delBtn = document.createElement('button');
+        delBtn.className = 'session-del';
+        delBtn.textContent = '🗑 この記録を削除';
+        delBtn.addEventListener('click', ()=> deletePastSessionCount(idx));
+        head.appendChild(dateSpan);
+        head.appendChild(delBtn);
+        box.appendChild(head);
+
+        const summary = document.createElement('div');
+        summary.className = 'past-session-summary';
+        summary.textContent = `合計 ${sess.count}本`;
+        box.appendChild(summary);
+
+        pastEl.appendChild(box);
+      });
+    }
+  }
+
   /* ---------- Service Worker登録(PWAのオフライン対応) ---------- */
   if('serviceWorker' in navigator){
     window.addEventListener('load', ()=>{
@@ -1227,6 +1435,7 @@
   setMode('6');
   loadData6();
   loadData36();
+  loadDataCount();
 </script>
 </body>
 </html>
