@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover">
 <title>アーチェリー得点計算</title>
 
 <!-- PWA対応 -->
@@ -275,6 +275,72 @@
   .count-btn.plus-big{ background:var(--accent2); color:#fff; }
   .count-btn.minus{ background:var(--danger); color:#fff; }
   .count-btn.minus:disabled{ opacity:0.35; pointer-events:none; }
+
+  /* ---- 的(ターゲット)ウィジェット ---- */
+  .target-section{
+    margin-bottom:14px;
+  }
+  .target-hint{
+    font-size:12px;
+    color:var(--sub);
+    text-align:center;
+    margin:-4px 0 10px;
+  }
+  .target-inner{
+    position:relative;
+    width:100%;
+    max-width:260px;
+    margin:0 auto;
+    aspect-ratio:1/1;
+    border-radius:50%;
+    overflow:hidden;
+    box-shadow:0 0 0 3px #05060a, 0 4px 16px rgba(0,0,0,0.4);
+  }
+  .target-inner.interactive{ cursor:crosshair; }
+  .target-svg{
+    width:100%;
+    height:100%;
+    display:block;
+  }
+  .target-dots{
+    position:absolute;
+    inset:0;
+    pointer-events:none;
+  }
+  .target-dot{
+    position:absolute;
+    width:11px;
+    height:11px;
+    margin:-5.5px 0 0 -5.5px;
+    border-radius:50%;
+    background:#00e5ff;
+    border:1.5px solid #06202b;
+    box-shadow:0 0 0 1.5px rgba(255,255,255,0.85);
+  }
+  .target-dot.x{ background:#ff3d9a; }
+  .target-dot.miss{ background:#8b93a7; }
+  .target-inner.small{ max-width:120px; }
+  .target-inner.small .target-dot{
+    width:7px; height:7px; margin:-3.5px 0 0 -3.5px;
+    border-width:1px;
+  }
+  .target-mini-actions{
+    display:flex;
+    justify-content:center;
+    gap:10px;
+    margin-top:10px;
+    flex-wrap:wrap;
+  }
+  .target-mini-btn{
+    padding:8px 14px;
+    border:1px solid #2c3a54;
+    border-radius:10px;
+    background:var(--card2);
+    color:var(--text);
+    font-size:12px;
+    font-weight:600;
+  }
+  .target-mini-btn:active{ transform:scale(0.96); }
 
   .actions{
     display:grid;
@@ -552,6 +618,15 @@
 
     <div class="buttons" id="buttonGrid6"></div>
 
+    <div class="target-section">
+      <div class="section-title">🎯 着弾位置メモ（点数とは別に、目安の場所をタップ）</div>
+      <div id="targetHolder6"></div>
+      <div class="target-hint">タップした場所にマークが付きます。点数は上のボタンで入力してください</div>
+      <div class="target-mini-actions">
+        <button class="target-mini-btn" onclick="undoMark6()">↩ マークを一つ消す</button>
+      </div>
+    </div>
+
     <div class="actions">
       <button class="action-btn undo" onclick="undo6()">↩ 一つ戻す</button>
       <button class="action-btn newset" onclick="startNewSet6()">✅ この記録を保存して次へ</button>
@@ -606,6 +681,15 @@
     </div>
 
     <div class="buttons" id="buttonGrid36"></div>
+
+    <div class="target-section">
+      <div class="section-title">🎯 着弾位置メモ（この立の分だけ表示・点数は別入力）</div>
+      <div id="targetHolder36"></div>
+      <div class="target-hint">タップした場所にマークが付きます。点数は上のボタンで入力してください</div>
+      <div class="target-mini-actions">
+        <button class="target-mini-btn" onclick="undoMark36()">↩ マークを一つ消す</button>
+      </div>
+    </div>
 
     <div class="actions">
       <button class="action-btn undo" onclick="undo36()">↩ 一つ戻す</button>
@@ -765,6 +849,75 @@
   }
 
   /* ============================================================
+     的(ターゲット)ウィジェット：タップした位置にマークを置くだけ
+     （点数はこれまで通りボタンで入力する。マークは記録の参考用）
+     ============================================================ */
+  const RING_COLORS = ['#f5f5f0','#f5f5f0','#161616','#161616','#2f8fe0','#2f8fe0','#e6332a','#e6332a','#ffd400','#ffd400']; // index0..9 = score1..10
+  const TARGET_R = 96;
+
+  function buildTargetSVG(){
+    const ns = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(ns,'svg');
+    svg.setAttribute('viewBox','0 0 200 200');
+    svg.classList.add('target-svg');
+    for(let k=10; k>=1; k--){
+      const score = 11 - k;
+      const c = document.createElementNS(ns,'circle');
+      c.setAttribute('cx',100); c.setAttribute('cy',100);
+      c.setAttribute('r', (TARGET_R*k/10).toFixed(2));
+      c.setAttribute('fill', RING_COLORS[score-1]);
+      c.setAttribute('stroke','rgba(0,0,0,0.35)');
+      c.setAttribute('stroke-width','0.6');
+      svg.appendChild(c);
+    }
+    const xC = document.createElementNS(ns,'circle');
+    xC.setAttribute('cx',100); xC.setAttribute('cy',100);
+    xC.setAttribute('r', (TARGET_R*0.05).toFixed(2));
+    xC.setAttribute('fill','none');
+    xC.setAttribute('stroke','rgba(0,0,0,0.55)');
+    xC.setAttribute('stroke-width','0.7');
+    svg.appendChild(xC);
+    return svg;
+  }
+
+  function hasAnyMarks(marks){
+    return !!(marks && marks.length > 0);
+  }
+
+  /* onTap(x,y) を渡すとタップでマークを置けるウィジェットに、渡さないと閲覧専用になる */
+  function createTargetWidget(marks, onTap, small){
+    const wrap = document.createElement('div');
+    wrap.className = 'target-inner' + (onTap ? ' interactive' : '') + (small ? ' small' : '');
+    wrap.appendChild(buildTargetSVG());
+    const dots = document.createElement('div');
+    dots.className = 'target-dots';
+    wrap.appendChild(dots);
+
+    function paintDots(list){
+      dots.innerHTML = '';
+      (list || []).forEach(m=>{
+        if(!m || m.x === undefined || m.x === null) return;
+        const d = document.createElement('div');
+        d.className = 'target-dot';
+        d.style.left = (m.x*100) + '%';
+        d.style.top = (m.y*100) + '%';
+        dots.appendChild(d);
+      });
+    }
+    paintDots(marks);
+
+    if(onTap){
+      wrap.addEventListener('click', (e)=>{
+        const rect = wrap.getBoundingClientRect();
+        const x = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
+        const y = Math.min(1, Math.max(0, (e.clientY - rect.top) / rect.height));
+        onTap(x, y);
+      });
+    }
+    return { el: wrap, paintDots };
+  }
+
+  /* ============================================================
      モード切り替え
      ============================================================ */
   let currentMode = '6';
@@ -815,7 +968,7 @@
   }
 
   function newSession6(distance){
-    return { startedAt: nowLabel(), distance: distance || '30m', arrows: [] };
+    return { startedAt: nowLabel(), distance: distance || '30m', arrows: [], marks: [] };
   }
 
   async function loadData6(){
@@ -825,6 +978,7 @@
         const parsed = JSON.parse(result.value);
         allSessions6 = parsed.pastSessions || [];
         current6 = parsed.current || newSession6();
+        if(!current6.marks) current6.marks = [];
       } else {
         allSessions6 = [];
         current6 = newSession6();
@@ -857,6 +1011,23 @@
     if(navigator.vibrate) navigator.vibrate(15);
     await saveData6();
   }
+
+  async function addMark6(x, y){
+    current6.marks.push({x, y});
+    render6();
+    if(navigator.vibrate) navigator.vibrate(10);
+    await saveData6();
+  }
+
+  async function undoMark6(){
+    if(current6.marks.length === 0) return;
+    current6.marks.pop();
+    render6();
+    await saveData6();
+  }
+
+  const target6 = createTargetWidget(current6 ? current6.marks : [], (x,y)=> addMark6(x,y));
+  document.getElementById('targetHolder6').appendChild(target6.el);
 
   async function undo6(){
     if(current6.arrows.length === 0) return;
@@ -937,6 +1108,7 @@
 
     updateButtonState6();
     renderChips(document.getElementById('history6'), current6.arrows, (idx)=> deleteCurrentArrow6(idx));
+    target6.paintDots(current6.marks);
 
     const pastEl = document.getElementById('pastSessions6');
     pastEl.innerHTML = '';
@@ -970,6 +1142,12 @@
         chipsWrap.className = 'history';
         renderChips(chipsWrap, sess.arrows, (arrowIdx)=> deletePastArrow6(sessionIdx, arrowIdx));
         box.appendChild(chipsWrap);
+
+        if(hasAnyMarks(sess.marks)){
+          const thumb = createTargetWidget(sess.marks, null, true);
+          thumb.el.style.marginTop = '10px';
+          box.appendChild(thumb.el);
+        }
 
         pastEl.appendChild(box);
       });
@@ -1025,7 +1203,7 @@
   }
 
   function newRound36(distance){
-    return { startedAt: nowLabel(), distance: distance || '30m', ends: [[]] };
+    return { startedAt: nowLabel(), distance: distance || '30m', ends: [[]], endMarks: [[]] };
   }
 
   async function loadData36(){
@@ -1035,6 +1213,7 @@
         const parsed = JSON.parse(result.value);
         pastRounds36 = parsed.pastRounds || [];
         current36 = parsed.current || newRound36();
+        if(!current36.endMarks) current36.endMarks = current36.ends.map(()=>[]);
       } else {
         pastRounds36 = [];
         current36 = newRound36();
@@ -1058,6 +1237,7 @@
 
   function currentEndIndex36(){ return current36.ends.length - 1; }
   function currentEndArrows36(){ return current36.ends[currentEndIndex36()]; }
+  function currentEndMarks36(){ return current36.endMarks[currentEndIndex36()]; }
 
   async function addScore36(label){
     const arrows = currentEndArrows36();
@@ -1071,6 +1251,24 @@
     if(navigator.vibrate) navigator.vibrate(15);
     await saveData36();
   }
+
+  async function addMark36(x, y){
+    currentEndMarks36().push({x, y});
+    render36();
+    if(navigator.vibrate) navigator.vibrate(10);
+    await saveData36();
+  }
+
+  async function undoMark36(){
+    const marks = currentEndMarks36();
+    if(marks.length === 0) return;
+    marks.pop();
+    render36();
+    await saveData36();
+  }
+
+  const target36 = createTargetWidget([], (x,y)=> addMark36(x,y));
+  document.getElementById('targetHolder36').appendChild(target36.el);
 
   async function undo36(){
     const arrows = currentEndArrows36();
@@ -1092,6 +1290,7 @@
     }
     if(currentEndIndex36() < ENDS_PER_ROUND - 1){
       current36.ends.push([]);
+      current36.endMarks.push([]);
       render36();
       await saveData36();
     } else {
@@ -1170,6 +1369,7 @@
 
     const endFull = activeArrows.length >= ARROWS_PER_END;
     buttonGrid36.querySelectorAll('.score-btn').forEach(btn=>{ btn.disabled = endFull; });
+    target36.paintDots(currentEndMarks36());
 
     const nextBtn = document.getElementById('nextEndBtn36');
     nextBtn.disabled = !endFull;
@@ -1191,6 +1391,11 @@
       chipsWrap.className = 'history';
       renderChips(chipsWrap, endArrows, (arrowIdx)=> deleteArrow36(current36.ends, endIdx, arrowIdx, saveData36));
       block.appendChild(chipsWrap);
+      if(hasAnyMarks(current36.endMarks[endIdx])){
+        const thumb = createTargetWidget(current36.endMarks[endIdx], null, true);
+        thumb.el.style.marginTop = '10px';
+        block.appendChild(thumb.el);
+      }
       endsEl.appendChild(block);
     });
 
@@ -1251,6 +1456,11 @@
           chipsWrap.className = 'history';
           renderChips(chipsWrap, endArrows, (arrowIdx)=> deleteArrow36(round.ends, endIdx, arrowIdx, saveData36));
           block.appendChild(chipsWrap);
+          if(hasAnyMarks(round.endMarks && round.endMarks[endIdx])){
+            const thumb = createTargetWidget(round.endMarks[endIdx], null, true);
+            thumb.el.style.marginTop = '10px';
+            block.appendChild(thumb.el);
+          }
           details.appendChild(block);
         });
         box.appendChild(details);
