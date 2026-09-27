@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>アーチェリー得点計算</title>
 
 <!-- PWA対応 -->
@@ -58,7 +58,7 @@
   }
   .mode-switch{
     display:grid;
-    grid-template-columns:1fr 1fr 1fr;
+    grid-template-columns:1fr 1fr;
     gap:8px;
     margin-bottom:16px;
     background:var(--card);
@@ -398,6 +398,11 @@
     font-size:12px;
     margin-top:8px;
   }
+  .global-data-section{
+    margin-top:28px;
+    padding-top:20px;
+    border-top:1px solid #232c3f;
+  }
 
   .actions{
     display:grid;
@@ -640,6 +645,7 @@
   <div class="mode-switch">
     <button class="mode-btn" id="modeBtn6" onclick="setMode('6')">6本ずつ</button>
     <button class="mode-btn" id="modeBtn36" onclick="setMode('36')">36本(6立)</button>
+    <button class="mode-btn" id="modeBtn72" onclick="setMode('72')">72本(前半/後半)</button>
     <button class="mode-btn" id="modeBtnCount" onclick="setMode('count')">本数カウント</button>
   </div>
 
@@ -780,6 +786,86 @@
     </div>
   </div>
 
+  <!-- ============ 72本(前半36+後半36)バージョン ============ -->
+  <div id="mode72Wrap" class="hidden">
+    <div class="stats">
+      <div class="stat-card total">
+        <div class="stat-label">今ラウンドの合計点</div>
+        <div class="stat-value" id="totalScore72">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">本数</div>
+        <div class="stat-value" id="arrowCount72">0 / 72</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">X本数</div>
+        <div class="stat-value" id="xCount72">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">平均点</div>
+        <div class="stat-value" id="avgScore72">0.0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">最高得点(1本)</div>
+        <div class="stat-value" id="bestScore72">-</div>
+      </div>
+    </div>
+
+    <div class="stats">
+      <div class="stat-card">
+        <div class="stat-label">前半合計(1〜36本)</div>
+        <div class="stat-value" id="firstHalfScore72">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">後半合計(37〜72本)</div>
+        <div class="stat-value" id="secondHalfScore72">0</div>
+      </div>
+    </div>
+
+    <div class="distance-row" id="distanceRow72"></div>
+
+    <div class="end-progress">
+      <div class="end-progress-title" id="halfLabel72">前半（1〜6立目）の進み具合</div>
+      <div class="end-dots" id="endDots72"></div>
+      <div class="end-count-text" id="endCountText72">1立目：0 / 6 本</div>
+    </div>
+
+    <div class="buttons" id="buttonGrid72"></div>
+
+    <div class="target-section">
+      <div class="section-title">🎯 着弾位置メモ（この立の分だけ表示・点数は別入力）</div>
+      <div id="targetHolder72"></div>
+      <div class="target-hint">タップした場所にそのままマークが付きます（最大6個）。重なった所はオレンジ色に変わり「×2」のように数を表示します。点数は上のボタンで入力してください。2本指のピンチで拡大・ドラッグで移動できます</div>
+      <div class="target-mini-actions">
+        <span class="target-count" id="targetCount72">マーク 0個</span>
+        <button class="target-mini-btn" onclick="resetTargetZoom72()">🔄 ズームを戻す</button>
+        <button class="target-mini-btn" onclick="undoMark72()">↩ マークを一つ消す</button>
+      </div>
+    </div>
+
+    <div class="memo-section">
+      <div class="section-title">📝 この立のメモ（任意）</div>
+      <textarea id="memoInput72" class="memo-textarea" placeholder="風の強さ、フォームの調子、気づいたことなど"></textarea>
+    </div>
+
+    <div class="actions">
+      <button class="action-btn undo" onclick="undo72()">↩ 一つ戻す</button>
+      <button class="action-btn newset" id="nextEndBtn72" onclick="nextEnd72()">次の立へ ▶</button>
+    </div>
+    <div class="actions">
+      <button class="action-btn export" onclick="exportCSV72()">📄 CSVで書き出す</button>
+      <button class="action-btn reset" onclick="resetCurrentRound72()">🗑 このラウンドを全部消す</button>
+    </div>
+
+    <div class="section-title">今ラウンドの記録(各立ごと)</div>
+    <div id="currentEnds72"></div>
+
+    <div class="section-title">📚 過去のラウンド(72射)</div>
+    <div id="pastRoundsList72">
+      <span class="empty-msg">まだ過去のラウンドはありません</span>
+    </div>
+  </div>
+
   <!-- ============ 本数カウントバージョン(点数は付けず、本数だけ数える) ============ -->
   <div id="modeCountWrap" class="hidden">
     <div class="distance-row" id="distanceRowCount"></div>
@@ -805,6 +891,19 @@
     <div id="pastSessionsCount">
       <span class="empty-msg">まだ過去の記録はありません</span>
     </div>
+  </div>
+
+  <div class="global-data-section">
+    <div class="section-title">💾 データの管理（3つのモード共通）</div>
+    <div class="actions">
+      <button class="action-btn export" onclick="exportAllCSV()">📄 全データを1つのCSVで書き出す</button>
+      <button class="action-btn export" onclick="exportBackupJSON()">💾 バックアップを書き出す</button>
+    </div>
+    <div class="actions">
+      <button class="action-btn newset" onclick="document.getElementById('importFileInput').click()">📥 バックアップを読み込む</button>
+    </div>
+    <input type="file" id="importFileInput" accept="application/json" style="display:none" onchange="importBackupJSON(event)">
+    <div class="target-hint">書き出したバックアップ(JSON)を別の端末やブラウザでも読み込めます。読み込むと今の記録は上書きされるので注意してください</div>
   </div>
 </div>
 
@@ -1044,6 +1143,7 @@
 
     el.addEventListener('touchstart', (e)=>{
       if(e.touches.length === 2){
+        e.preventDefault();
         mode = 'pinch';
         startDist = dist(e.touches);
         startScale = scale;
@@ -1056,13 +1156,13 @@
         panStartY = e.touches[0].clientY;
         panStartTx = tx; panStartTy = ty;
       }
-    }, {passive:true});
+    }, {passive:false});
 
     el.addEventListener('touchmove', (e)=>{
       if(mode === 'pinch' && e.touches.length === 2){
         e.preventDefault();
         const d = dist(e.touches);
-        scale = Math.min(4, Math.max(1, startScale * (d / startDist)));
+        scale = Math.min(8, Math.max(1, startScale * (d / startDist)));
         const m = mid(e.touches);
         tx = startTx + (m.x - startMidX);
         ty = startTy + (m.y - startMidY);
@@ -1105,9 +1205,11 @@
     currentMode = mode;
     document.getElementById('mode6Wrap').classList.toggle('hidden', mode !== '6');
     document.getElementById('mode36Wrap').classList.toggle('hidden', mode !== '36');
+    document.getElementById('mode72Wrap').classList.toggle('hidden', mode !== '72');
     document.getElementById('modeCountWrap').classList.toggle('hidden', mode !== 'count');
     document.getElementById('modeBtn6').classList.toggle('active', mode === '6');
     document.getElementById('modeBtn36').classList.toggle('active', mode === '36');
+    document.getElementById('modeBtn72').classList.toggle('active', mode === '72');
     document.getElementById('modeBtnCount').classList.toggle('active', mode === 'count');
   }
 
@@ -1718,6 +1820,365 @@
     downloadCSV(rows, 'archery_36_records_' + new Date().toISOString().slice(0,10) + '.csv');
   }
 
+  /* ============================================================
+     72本(前半36+後半36)バージョン
+     ============================================================ */
+  const STORAGE_KEY72 = 'archery-72-rounds';
+  const ENDS_PER_ROUND72 = 12;
+  let pastRounds72 = [];
+  let current72 = null;
+
+  const buttonGrid72 = document.getElementById('buttonGrid72');
+  order.forEach(label=>{
+    const btn = document.createElement('button');
+    btn.className = 'score-btn';
+    if(label === 'X') btn.classList.add('x-btn');
+    if(label === '0') btn.classList.add('zero-btn');
+    btn.textContent = label === '0' ? 'M' : label;
+    btn.addEventListener('click', ()=> addScore72(label));
+    buttonGrid72.appendChild(btn);
+  });
+
+  const distanceRow72 = document.getElementById('distanceRow72');
+  DISTANCES.forEach(d=>{
+    const btn = document.createElement('button');
+    btn.className = 'distance-btn';
+    btn.dataset.distance = d;
+    btn.textContent = d;
+    btn.addEventListener('click', ()=> selectDistance72(d));
+    distanceRow72.appendChild(btn);
+  });
+
+  async function selectDistance72(d){
+    current72.distance = d;
+    render72();
+    await saveData72();
+  }
+
+  function newRound72(distance){
+    return { startedAt: nowLabel(), distance: distance || '30m', ends: [[]], endMarks: [[]], endMemos: [''] };
+  }
+
+  async function loadData72(){
+    try{
+      const result = await storageGet(STORAGE_KEY72);
+      if(result && result.value){
+        const parsed = JSON.parse(result.value);
+        pastRounds72 = parsed.pastRounds || [];
+        current72 = parsed.current || newRound72();
+        if(!current72.endMarks) current72.endMarks = current72.ends.map(()=>[]);
+        if(!current72.endMemos) current72.endMemos = current72.ends.map(()=>'');
+      } else {
+        pastRounds72 = [];
+        current72 = newRound72();
+      }
+    }catch(e){
+      pastRounds72 = [];
+      current72 = newRound72();
+    }
+    render72();
+  }
+
+  async function saveData72(){
+    try{
+      const payload = JSON.stringify({ pastRounds: pastRounds72, current: current72 });
+      const result = await storageSet(STORAGE_KEY72, payload);
+      saveStatusText(result ? '✔ 保存しました' : '⚠ 保存に失敗しました', 1200);
+    }catch(e){
+      saveStatusText('⚠ 保存エラー：' + e.message, 2000);
+    }
+  }
+
+  function currentEndIndex72(){ return current72.ends.length - 1; }
+  function currentEndArrows72(){ return current72.ends[currentEndIndex72()]; }
+  function currentEndMarks72(){ return current72.endMarks[currentEndIndex72()]; }
+
+  async function addScore72(label){
+    const arrows = currentEndArrows72();
+    if(arrows.length >= ARROWS_PER_END){
+      showToast('この立は' + ARROWS_PER_END + '本で終わりです。「次の立へ」を押してください。');
+      return;
+    }
+    const value = label === 'X' ? 10 : parseInt(label,10);
+    arrows.push({label, value});
+    render72();
+    if(navigator.vibrate) navigator.vibrate(15);
+    await saveData72();
+  }
+
+  async function addMark72(x, y){
+    const marks = currentEndMarks72();
+    if(marks.length >= ARROWS_PER_END){
+      showToast('マークは1立' + ARROWS_PER_END + '個までです。');
+      return;
+    }
+    marks.push({x, y});
+    render72();
+    if(navigator.vibrate) navigator.vibrate(10);
+    await saveData72();
+  }
+
+  async function undoMark72(){
+    const marks = currentEndMarks72();
+    if(marks.length === 0) return;
+    marks.pop();
+    render72();
+    await saveData72();
+  }
+
+  const target72 = createTargetWidget([], (x,y)=> addMark72(x,y));
+  document.getElementById('targetHolder72').appendChild(target72.el);
+  function resetTargetZoom72(){ if(target72.el._resetZoom) target72.el._resetZoom(); }
+
+  const memoInput72 = document.getElementById('memoInput72');
+  let memoSaveTimer72 = null;
+  memoInput72.addEventListener('input', (e)=>{
+    current72.endMemos[currentEndIndex72()] = e.target.value;
+    clearTimeout(memoSaveTimer72);
+    memoSaveTimer72 = setTimeout(()=> saveData72(), 600);
+  });
+
+  async function undo72(){
+    const arrows = currentEndArrows72();
+    if(arrows.length === 0){
+      if(currentEndIndex72() === 0){ return; }
+      showToast('この立はまだ0本です。前の立の記録を消したい場合は「×」で削除してください。');
+      return;
+    }
+    arrows.pop();
+    render72();
+    await saveData72();
+  }
+
+  async function nextEnd72(){
+    const arrows = currentEndArrows72();
+    if(arrows.length < ARROWS_PER_END){
+      showToast('この立はまだ' + arrows.length + '/' + ARROWS_PER_END + '本です。6本入れてから進んでください。');
+      return;
+    }
+    if(currentEndIndex72() < ENDS_PER_ROUND72 - 1){
+      current72.ends.push([]);
+      current72.endMarks.push([]);
+      current72.endMemos.push('');
+      render72();
+      await saveData72();
+    } else {
+      await finishRound72();
+    }
+  }
+
+  async function finishRound72(){
+    current72.endedAt = nowLabel();
+    pastRounds72.unshift(current72);
+    current72 = newRound72(current72.distance);
+    render72();
+    await saveData72();
+    showToast('🏁 72射のラウンドを保存しました！');
+  }
+
+  async function resetCurrentRound72(){
+    const totalArrows = current72.ends.reduce((s,e)=>s+e.length,0);
+    if(totalArrows === 0){
+      showToast('今ラウンドの記録はまだ0本です。');
+      return;
+    }
+    const ok = await showConfirm('今ラウンド(進行中の72射)を全部消しますか？\n保存済みの過去ラウンドは消えません。', '全部消す');
+    if(!ok) return;
+    current72 = newRound72(current72.distance);
+    render72();
+    await saveData72();
+  }
+
+  async function deleteArrow72(ends, endIdx, arrowIdx, onSaved){
+    const ok = await showConfirm('この1本の記録を削除しますか？');
+    if(!ok) return;
+    ends[endIdx].splice(arrowIdx, 1);
+    render72();
+    await onSaved();
+  }
+
+  async function deletePastRound72(idx){
+    const ok = await showConfirm('この72射のラウンドをまとめて削除しますか？\nこの操作は取り消せません。', '削除する');
+    if(!ok) return;
+    pastRounds72.splice(idx, 1);
+    render72();
+    await saveData72();
+  }
+
+  function flatten36(ends){
+    return ends.reduce((acc,e)=>acc.concat(e), []);
+  }
+
+  function render72(){
+    const allArrows = flatten36(current72.ends);
+    const s = summarize(allArrows);
+    document.getElementById('totalScore72').textContent = s.total;
+    document.getElementById('arrowCount72').textContent = s.count + ' / 72';
+    document.getElementById('xCount72').textContent = s.xCount;
+    document.getElementById('avgScore72').textContent = s.avg.toFixed(2);
+    document.getElementById('bestScore72').textContent = s.best === null ? '-' : s.best;
+
+    const firstHalfArrows = flatten36(current72.ends.slice(0,6));
+    const secondHalfArrows = flatten36(current72.ends.slice(6,12));
+    document.getElementById('firstHalfScore72').textContent = summarize(firstHalfArrows).total;
+    document.getElementById('secondHalfScore72').textContent = summarize(secondHalfArrows).total;
+
+    document.querySelectorAll('#distanceRow72 .distance-btn').forEach(btn=>{
+      btn.classList.toggle('active', btn.dataset.distance === current72.distance);
+    });
+
+    const dotsEl = document.getElementById('endDots72');
+    dotsEl.innerHTML = '';
+    for(let i=0;i<ENDS_PER_ROUND72;i++){
+      const dot = document.createElement('div');
+      dot.className = 'end-dot';
+      if(i < currentEndIndex72()) dot.classList.add('done');
+      else if(i === currentEndIndex72()) dot.classList.add('active');
+      dot.textContent = (i % 6) + 1;
+      if(i === 6) dot.style.marginLeft = '10px';
+      dotsEl.appendChild(dot);
+    }
+    const activeArrows = currentEndArrows72();
+    const curIdx72 = currentEndIndex72();
+    const halfName72 = curIdx72 < 6 ? '前半' : '後半';
+    const endInHalf72 = (curIdx72 % 6) + 1;
+    document.getElementById('halfLabel72').textContent = halfName72 + '（' + (curIdx72<6 ? '1〜6立目' : '7〜12立目') + '）の進み具合';
+    document.getElementById('endCountText72').textContent =
+      halfName72 + ' ' + endInHalf72 + '立目（通算' + (curIdx72+1) + '立目）：' + activeArrows.length + ' / ' + ARROWS_PER_END + ' 本';
+
+    const endFull = activeArrows.length >= ARROWS_PER_END;
+    buttonGrid72.querySelectorAll('.score-btn').forEach(btn=>{ btn.disabled = endFull; });
+    target72.paintDots(currentEndMarks72());
+    document.getElementById('targetCount72').textContent = 'マーク ' + currentEndMarks72().length + '個';
+    if(document.activeElement !== memoInput72) memoInput72.value = current72.endMemos[currentEndIndex72()] || '';
+
+    const nextBtn = document.getElementById('nextEndBtn72');
+    nextBtn.disabled = !endFull;
+    nextBtn.textContent = (currentEndIndex72() === ENDS_PER_ROUND72 - 1)
+      ? '🏁 ラウンドを保存する(72本目)'
+      : '次の立へ ▶ (' + (currentEndIndex72()+2) + '立目)';
+
+    const endsEl = document.getElementById('currentEnds72');
+    endsEl.innerHTML = '';
+    current72.ends.forEach((endArrows, endIdx)=>{
+      const es = summarize(endArrows);
+      const block = document.createElement('div');
+      block.className = 'end-block';
+      const head = document.createElement('div');
+      head.className = 'end-block-head';
+      head.innerHTML = `<span><b>${endIdx<6?'前半':'後半'}${(endIdx%6)+1}立目</b></span><span>${es.count}/${ARROWS_PER_END}本・${es.total}点</span>`;
+      block.appendChild(head);
+      const chipsWrap = document.createElement('div');
+      chipsWrap.className = 'history';
+      renderChips(chipsWrap, endArrows, (arrowIdx)=> deleteArrow72(current72.ends, endIdx, arrowIdx, saveData72));
+      block.appendChild(chipsWrap);
+      if(hasAnyMarks(current72.endMarks[endIdx])){
+        const thumb = createTargetWidget(current72.endMarks[endIdx], null, true);
+        thumb.el.style.marginTop = '10px';
+        block.appendChild(thumb.el);
+      }
+      if(endIdx !== currentEndIndex72()){
+        const memoBox = createEditableMemo(current72.endMemos[endIdx], async (val)=>{
+          current72.endMemos[endIdx] = val;
+          await saveData72();
+        });
+        block.appendChild(memoBox);
+      }
+      endsEl.appendChild(block);
+    });
+
+    const pastEl = document.getElementById('pastRoundsList72');
+    pastEl.innerHTML = '';
+    if(pastRounds72.length === 0){
+      pastEl.innerHTML = '<span class="empty-msg">まだ過去のラウンドはありません</span>';
+    } else {
+      pastRounds72.forEach((round, roundIdx)=>{
+        const allR = flatten36(round.ends);
+        const rs = summarize(allR);
+        const box = document.createElement('details');
+        box.className = 'past-round';
+
+        const summaryEl = document.createElement('summary');
+        const head = document.createElement('div');
+        head.className = 'past-round-head';
+        const dateSpan = document.createElement('span');
+        dateSpan.className = 'past-round-date';
+        dateSpan.textContent = (round.distance ? '【' + round.distance + '】' : '') + (round.endedAt || round.startedAt);
+        const delBtn = document.createElement('button');
+        delBtn.className = 'round-del';
+        delBtn.textContent = '🗑 削除';
+        delBtn.addEventListener('click', (e)=>{ e.preventDefault(); deletePastRound72(roundIdx); });
+        head.appendChild(dateSpan);
+        head.appendChild(delBtn);
+        summaryEl.appendChild(head);
+
+        const summaryText = document.createElement('div');
+        summaryText.className = 'past-round-summary';
+        summaryText.textContent = `合計 ${rs.total}点 / ${rs.count}本 / X:${rs.xCount}本 / 平均 ${rs.avg.toFixed(2)}`;
+        summaryEl.appendChild(summaryText);
+
+        const badges = document.createElement('div');
+        badges.className = 'end-badges';
+        round.ends.forEach((e, i)=>{
+          const es = summarize(e);
+          const b = document.createElement('span');
+          b.className = 'end-badge';
+          b.textContent = (i<6?'前':'後') + ((i%6)+1) + '立:' + es.total + '点';
+          badges.appendChild(b);
+        });
+        summaryEl.appendChild(badges);
+
+        box.appendChild(summaryEl);
+
+        const details = document.createElement('div');
+        details.className = 'past-round-details';
+        round.ends.forEach((endArrows, endIdx)=>{
+          const es = summarize(endArrows);
+          const block = document.createElement('div');
+          block.className = 'end-block';
+          const eHead = document.createElement('div');
+          eHead.className = 'end-block-head';
+          eHead.innerHTML = `<span><b>${endIdx<6?'前半':'後半'}${(endIdx%6)+1}立目</b></span><span>${es.count}本・${es.total}点</span>`;
+          block.appendChild(eHead);
+          const chipsWrap = document.createElement('div');
+          chipsWrap.className = 'history';
+          renderChips(chipsWrap, endArrows, (arrowIdx)=> deleteArrow72(round.ends, endIdx, arrowIdx, saveData72));
+          block.appendChild(chipsWrap);
+          if(hasAnyMarks(round.endMarks && round.endMarks[endIdx])){
+            const thumb = createTargetWidget(round.endMarks[endIdx], null, true);
+            thumb.el.style.marginTop = '10px';
+            block.appendChild(thumb.el);
+          }
+          if(!round.endMemos) round.endMemos = round.ends.map(()=>'');
+          const memoBox = createEditableMemo(round.endMemos[endIdx], async (val)=>{
+            round.endMemos[endIdx] = val;
+            await saveData72();
+          });
+          block.appendChild(memoBox);
+          details.appendChild(block);
+        });
+        box.appendChild(details);
+
+        pastEl.appendChild(box);
+      });
+    }
+  }
+
+  function exportCSV72(){
+    let rows = [['距離','日時(ラウンド保存時)','立(エンド)','得点(X=10)','X判定']];
+    const allRounds = [...pastRounds72];
+    const currentHasArrows = flatten36(current72.ends).length > 0;
+    if(currentHasArrows) allRounds.unshift({...current72, endedAt:'(進行中)'});
+    allRounds.forEach(round=>{
+      round.ends.forEach((endArrows, endIdx)=>{
+        endArrows.forEach(a=>{
+          rows.push([round.distance || '', round.endedAt || round.startedAt, (endIdx<6?'前半':'後半')+((endIdx%6)+1)+'立目', a.value, a.label==='X'?'X':'']);
+        });
+      });
+    });
+    downloadCSV(rows, 'archery_72_records_' + new Date().toISOString().slice(0,10) + '.csv');
+  }
+
   /* ---------- 共通CSV書き出し ---------- */
   function downloadCSV(rows, filename){
     const csvContent = rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
@@ -1867,6 +2328,132 @@
     }
   }
 
+  /* ============================================================
+     全モード共通：バックアップの書き出し/読み込み・統合CSV
+     ============================================================ */
+  function exportBackupJSON(){
+    const data = {
+      version: 1,
+      exportedAt: nowLabel(),
+      sessions6: { pastSessions: allSessions6, current: current6 },
+      rounds36: { pastRounds: pastRounds36, current: current36 },
+      rounds72: { pastRounds: pastRounds72, current: current72 },
+      count: { pastSessions: allSessionsCount, current: currentCount }
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'archery_backup_' + new Date().toISOString().slice(0,10) + '.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  async function importBackupJSON(e){
+    const file = e.target.files[0];
+    if(!file) return;
+    const ok = await showConfirm('バックアップを読み込むと、今の記録は上書きされます。\nよろしいですか？', '読み込む');
+    if(!ok){ e.target.value = ''; return; }
+    try{
+      const text = await file.text();
+      const data = JSON.parse(text);
+
+      if(data.sessions6){
+        allSessions6 = data.sessions6.pastSessions || [];
+        current6 = data.sessions6.current || newSession6();
+        if(!current6.marks) current6.marks = [];
+        if(current6.memo === undefined) current6.memo = '';
+        await saveData6();
+      }
+      if(data.rounds36){
+        pastRounds36 = data.rounds36.pastRounds || [];
+        current36 = data.rounds36.current || newRound36();
+        if(!current36.endMarks) current36.endMarks = current36.ends.map(()=>[]);
+        if(!current36.endMemos) current36.endMemos = current36.ends.map(()=>'');
+        await saveData36();
+      }
+      if(data.rounds72){
+        pastRounds72 = data.rounds72.pastRounds || [];
+        current72 = data.rounds72.current || newRound72();
+        if(!current72.endMarks) current72.endMarks = current72.ends.map(()=>[]);
+        if(!current72.endMemos) current72.endMemos = current72.ends.map(()=>'');
+        await saveData72();
+      }
+      if(data.count){
+        allSessionsCount = data.count.pastSessions || [];
+        currentCount = data.count.current || newSessionCount();
+        await saveDataCount();
+      }
+
+      render6();
+      render36();
+      render72();
+      renderCount();
+      showToast('✅ バックアップを読み込みました');
+    }catch(err){
+      showToast('⚠ 読み込みに失敗しました。ファイル形式を確認してください。');
+      console.error(err);
+    }
+    e.target.value = '';
+  }
+
+  function exportAllCSV(){
+    let rows = [['モード','距離','日時','区分','得点(X=10・本数カウントは本数)','X判定','メモ']];
+
+    const all6 = [...allSessions6];
+    if(current6.arrows.length > 0) all6.unshift({...current6, endedAt:'(進行中)'});
+    all6.forEach(sess=>{
+      if(sess.arrows.length === 0){
+        rows.push(['6本ずつ', sess.distance||'', sess.endedAt||sess.startedAt, '', '', '', sess.memo||'']);
+      } else {
+        sess.arrows.forEach((a,i)=>{
+          rows.push(['6本ずつ', sess.distance||'', sess.endedAt||sess.startedAt, '', a.value, a.label==='X'?'X':'', i===0 ? (sess.memo||'') : '']);
+        });
+      }
+    });
+
+    const all36 = [...pastRounds36];
+    if(flatten36(current36.ends).length > 0) all36.unshift({...current36, endedAt:'(進行中)'});
+    all36.forEach(round=>{
+      round.ends.forEach((endArrows, endIdx)=>{
+        const memo = (round.endMemos && round.endMemos[endIdx]) || '';
+        if(endArrows.length === 0){
+          rows.push(['36本(6立)', round.distance||'', round.endedAt||round.startedAt, (endIdx+1)+'立目', '', '', memo]);
+        } else {
+          endArrows.forEach((a,i)=>{
+            rows.push(['36本(6立)', round.distance||'', round.endedAt||round.startedAt, (endIdx+1)+'立目', a.value, a.label==='X'?'X':'', i===0 ? memo : '']);
+          });
+        }
+      });
+    });
+
+    const all72 = [...pastRounds72];
+    if(flatten36(current72.ends).length > 0) all72.unshift({...current72, endedAt:'(進行中)'});
+    all72.forEach(round=>{
+      round.ends.forEach((endArrows, endIdx)=>{
+        const memo = (round.endMemos && round.endMemos[endIdx]) || '';
+        const halfLabel = (endIdx<6?'前半':'後半') + ((endIdx%6)+1) + '立目';
+        if(endArrows.length === 0){
+          rows.push(['72本(前半/後半)', round.distance||'', round.endedAt||round.startedAt, halfLabel, '', '', memo]);
+        } else {
+          endArrows.forEach((a,i)=>{
+            rows.push(['72本(前半/後半)', round.distance||'', round.endedAt||round.startedAt, halfLabel, a.value, a.label==='X'?'X':'', i===0 ? memo : '']);
+          });
+        }
+      });
+    });
+
+    const allCount = [...allSessionsCount];
+    if(currentCount.count > 0) allCount.unshift({...currentCount, endedAt:'(進行中)'});
+    allCount.forEach(sess=>{
+      rows.push(['本数カウント', sess.distance||'', sess.endedAt||sess.startedAt, '', sess.count+'本', '', '']);
+    });
+
+    downloadCSV(rows, 'archery_all_data_' + new Date().toISOString().slice(0,10) + '.csv');
+  }
+
   /* ---------- Service Worker登録(PWAのオフライン対応) ---------- */
   if('serviceWorker' in navigator){
     window.addEventListener('load', ()=>{
@@ -1878,6 +2465,7 @@
   setMode('6');
   loadData6();
   loadData36();
+  loadData72();
   loadDataCount();
 </script>
 </body>

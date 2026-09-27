@@ -1,4 +1,4 @@
-const CACHE_NAME = 'archery-score-v9';
+const CACHE_NAME = 'archery-score-v11';
 const ASSETS = [
   './',
   './index.html',
