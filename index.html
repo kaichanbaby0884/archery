@@ -572,6 +572,20 @@
     padding:6px 9px;
     white-space:nowrap;
   }
+  .record-export-btn{
+    border:none;
+    background:var(--accent2);
+    color:#fff;
+    font-size:11px;
+    font-weight:600;
+    border-radius:8px;
+    padding:6px 9px;
+    white-space:nowrap;
+  }
+  .past-session-head, .past-round-head{
+    flex-wrap:wrap;
+    row-gap:6px;
+  }
 
   .modal-overlay{
     display:none;
@@ -1427,7 +1441,12 @@
         delSessionBtn.className = 'session-del';
         delSessionBtn.textContent = '🗑 この記録を削除';
         delSessionBtn.addEventListener('click', ()=> deletePastSession6(sessionIdx));
+        const expSessionBtn = document.createElement('button');
+        expSessionBtn.className = 'record-export-btn';
+        expSessionBtn.textContent = '📄 この記録だけ書き出す';
+        expSessionBtn.addEventListener('click', ()=> exportSingleSession6(sess));
         head.appendChild(dateSpan);
+        head.appendChild(expSessionBtn);
         head.appendChild(delSessionBtn);
         box.appendChild(head);
 
@@ -1468,6 +1487,24 @@
       });
     });
     downloadCSV(rows, 'archery_records_' + new Date().toISOString().slice(0,10) + '.csv');
+  }
+
+  function dateStamp(label){
+    return (label || '').replace(/[^0-9]/g, '').slice(0,14) || new Date().toISOString().slice(0,10);
+  }
+
+  function exportSingleSession6(sess){
+    let rows = [['距離','日時','得点(X=10)','X判定','メモ']];
+    sess.arrows.forEach((a,i)=>{
+      rows.push([sess.distance||'', sess.endedAt||sess.startedAt, a.value, a.label==='X'?'X':'', i===0 ? (sess.memo||'') : '']);
+    });
+    downloadCSV(rows, 'archery_session_' + dateStamp(sess.endedAt||sess.startedAt) + '.csv');
+  }
+
+  function exportSingleSessionCount(sess){
+    let rows = [['距離','日時','本数']];
+    rows.push([sess.distance||'', sess.endedAt||sess.startedAt, sess.count+'本']);
+    downloadCSV(rows, 'archery_count_' + dateStamp(sess.endedAt||sess.startedAt) + '.csv');
   }
 
   /* ============================================================
@@ -1749,7 +1786,12 @@
         delBtn.className = 'round-del';
         delBtn.textContent = '🗑 削除';
         delBtn.addEventListener('click', (e)=>{ e.preventDefault(); deletePastRound36(roundIdx); });
+        const expBtn = document.createElement('button');
+        expBtn.className = 'record-export-btn';
+        expBtn.textContent = '📄 このラウンドだけ書き出す';
+        expBtn.addEventListener('click', (e)=>{ e.preventDefault(); exportSingleRound36(round); });
         head.appendChild(dateSpan);
+        head.appendChild(expBtn);
         head.appendChild(delBtn);
         summaryEl.appendChild(head);
 
@@ -1818,6 +1860,17 @@
       });
     });
     downloadCSV(rows, 'archery_36_records_' + new Date().toISOString().slice(0,10) + '.csv');
+  }
+
+  function exportSingleRound36(round){
+    let rows = [['距離','日時','立(エンド)','得点(X=10)','X判定','メモ']];
+    round.ends.forEach((endArrows, endIdx)=>{
+      const memo = (round.endMemos && round.endMemos[endIdx]) || '';
+      endArrows.forEach((a,i)=>{
+        rows.push([round.distance||'', round.endedAt||round.startedAt, (endIdx+1)+'立目', a.value, a.label==='X'?'X':'', i===0 ? memo : '']);
+      });
+    });
+    downloadCSV(rows, 'archery_round36_' + dateStamp(round.endedAt||round.startedAt) + '.csv');
   }
 
   /* ============================================================
@@ -2095,6 +2148,8 @@
       pastRounds72.forEach((round, roundIdx)=>{
         const allR = flatten36(round.ends);
         const rs = summarize(allR);
+        const firstHalfR = summarize(flatten36(round.ends.slice(0,6)));
+        const secondHalfR = summarize(flatten36(round.ends.slice(6,12)));
         const box = document.createElement('details');
         box.className = 'past-round';
 
@@ -2108,13 +2163,18 @@
         delBtn.className = 'round-del';
         delBtn.textContent = '🗑 削除';
         delBtn.addEventListener('click', (e)=>{ e.preventDefault(); deletePastRound72(roundIdx); });
+        const expBtn = document.createElement('button');
+        expBtn.className = 'record-export-btn';
+        expBtn.textContent = '📄 このラウンドだけ書き出す';
+        expBtn.addEventListener('click', (e)=>{ e.preventDefault(); exportSingleRound72(round); });
         head.appendChild(dateSpan);
+        head.appendChild(expBtn);
         head.appendChild(delBtn);
         summaryEl.appendChild(head);
 
         const summaryText = document.createElement('div');
         summaryText.className = 'past-round-summary';
-        summaryText.textContent = `合計 ${rs.total}点 / ${rs.count}本 / X:${rs.xCount}本 / 平均 ${rs.avg.toFixed(2)}`;
+        summaryText.textContent = `合計 ${rs.total}点 / ${rs.count}本 / X:${rs.xCount}本 / 平均 ${rs.avg.toFixed(2)}（前半 ${firstHalfR.total}点 / 後半 ${secondHalfR.total}点）`;
         summaryEl.appendChild(summaryText);
 
         const badges = document.createElement('div');
@@ -2177,6 +2237,18 @@
       });
     });
     downloadCSV(rows, 'archery_72_records_' + new Date().toISOString().slice(0,10) + '.csv');
+  }
+
+  function exportSingleRound72(round){
+    let rows = [['距離','日時','立(エンド)','得点(X=10)','X判定','メモ']];
+    round.ends.forEach((endArrows, endIdx)=>{
+      const memo = (round.endMemos && round.endMemos[endIdx]) || '';
+      const label = (endIdx<6?'前半':'後半')+((endIdx%6)+1)+'立目';
+      endArrows.forEach((a,i)=>{
+        rows.push([round.distance||'', round.endedAt||round.startedAt, label, a.value, a.label==='X'?'X':'', i===0 ? memo : '']);
+      });
+    });
+    downloadCSV(rows, 'archery_round72_' + dateStamp(round.endedAt||round.startedAt) + '.csv');
   }
 
   /* ---------- 共通CSV書き出し ---------- */
@@ -2314,7 +2386,12 @@
         delBtn.className = 'session-del';
         delBtn.textContent = '🗑 この記録を削除';
         delBtn.addEventListener('click', ()=> deletePastSessionCount(idx));
+        const expBtn = document.createElement('button');
+        expBtn.className = 'record-export-btn';
+        expBtn.textContent = '📄 この記録だけ書き出す';
+        expBtn.addEventListener('click', ()=> exportSingleSessionCount(sess));
         head.appendChild(dateSpan);
+        head.appendChild(expBtn);
         head.appendChild(delBtn);
         box.appendChild(head);
 
