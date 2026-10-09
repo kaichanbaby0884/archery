@@ -78,6 +78,10 @@
     background:var(--accent2);
     color:#fff;
   }
+  .mode-btn:last-child:nth-child(odd){ grid-column:1/-1; }
+  .spot-row{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:12px; }
+  .spot-label{ font-size:12px; color:var(--sub); width:100%; }
+  .spot-row .distance-btn{ flex:1; min-width:140px; }
   .hidden{ display:none !important; }
 
   .stats{
@@ -336,6 +340,8 @@
     box-shadow:0 0 0 2px rgba(255,255,255,0.9), 0 0 0 4px rgba(255,90,31,0.45);
     z-index:2;
   }
+  .target-inner.tri{ aspect-ratio:1/3; max-width:190px; border-radius:12px; background:#1b1f2a; }
+  .target-inner.tri.small{ max-width:56px; border-radius:6px; }
   .target-inner.small{ max-width:130px; }
   .target-inner.small .target-dot{
     width:9px; height:9px; margin:-4.5px 0 0 -4.5px;
@@ -660,6 +666,7 @@
     <button class="mode-btn" id="modeBtn6" onclick="setMode('6')">6本ずつ</button>
     <button class="mode-btn" id="modeBtn36" onclick="setMode('36')">36本(6立)</button>
     <button class="mode-btn" id="modeBtn72" onclick="setMode('72')">72本(前半/後半)</button>
+    <button class="mode-btn" id="modeBtnIn" onclick="setMode('indoor')">インドア(18m・60本)</button>
     <button class="mode-btn" id="modeBtnCount" onclick="setMode('count')">本数カウント</button>
   </div>
 
@@ -880,6 +887,86 @@
     </div>
   </div>
 
+  <!-- ============ インドア(18m・60本)バージョン ============ -->
+  <div id="modeInWrap" class="hidden">
+    <div class="stats">
+      <div class="stat-card total">
+        <div class="stat-label">今ラウンドの合計点</div>
+        <div class="stat-value" id="totalScoreIn">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">本数</div>
+        <div class="stat-value" id="arrowCountIn">0 / 60</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">X本数</div>
+        <div class="stat-value" id="xCountIn">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">平均点</div>
+        <div class="stat-value" id="avgScoreIn">0.0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">最高得点(1本)</div>
+        <div class="stat-value" id="bestScoreIn">-</div>
+      </div>
+    </div>
+
+    <div class="stats">
+      <div class="stat-card">
+        <div class="stat-label">前半合計(1〜30本)</div>
+        <div class="stat-value" id="firstHalfScoreIn">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">後半合計(31〜60本)</div>
+        <div class="stat-value" id="secondHalfScoreIn">0</div>
+      </div>
+    </div>
+
+    <div class="spot-row"><span class="spot-label">18m・縦3スポット（10〜6点）</span></div>
+
+    <div class="end-progress">
+      <div class="end-progress-title" id="halfLabelIn">前半（1〜10立目）の進み具合</div>
+      <div class="end-dots" id="endDotsIn"></div>
+      <div class="end-count-text" id="endCountTextIn">1立目：0 / 3 本</div>
+    </div>
+
+    <div class="buttons" id="buttonGridIn"></div>
+
+    <div class="target-section">
+      <div class="section-title">🎯 着弾位置メモ（この立の分だけ表示・点数は別入力）</div>
+      <div id="targetHolderIn"></div>
+      <div class="target-hint">タップした場所にそのままマークが付きます（最大3個）。重なった所はオレンジ色に変わり「×2」のように数を表示します。点数は上のボタンで入力してください。2本指のピンチで拡大・ドラッグで移動できます</div>
+      <div class="target-mini-actions">
+        <span class="target-count" id="targetCountIn">マーク 0個</span>
+        <button class="target-mini-btn" onclick="resetTargetZoomIn()">🔄 ズームを戻す</button>
+        <button class="target-mini-btn" onclick="undoMarkIn()">↩ マークを一つ消す</button>
+      </div>
+    </div>
+
+    <div class="memo-section">
+      <div class="section-title">📝 この立のメモ（任意）</div>
+      <textarea id="memoInputIn" class="memo-textarea" placeholder="風の強さ、フォームの調子、気づいたことなど"></textarea>
+    </div>
+
+    <div class="actions">
+      <button class="action-btn undo" onclick="undoIn()">↩ 一つ戻す</button>
+      <button class="action-btn newset" id="nextEndBtnIn" onclick="nextEndIn()">次の立へ ▶</button>
+    </div>
+    <div class="actions">
+      <button class="action-btn export" onclick="exportCSVIn()">📄 CSVで書き出す</button>
+      <button class="action-btn reset" onclick="resetCurrentRoundIn()">🗑 このラウンドを全部消す</button>
+    </div>
+
+    <div class="section-title">今ラウンドの記録(各立ごと)</div>
+    <div id="currentEndsIn"></div>
+
+    <div class="section-title">📚 過去のラウンド(インドア60射)</div>
+    <div id="pastRoundsListIn">
+      <span class="empty-msg">まだ過去のラウンドはありません</span>
+    </div>
+  </div>
+
   <!-- ============ 本数カウントバージョン(点数は付けず、本数だけ数える) ============ -->
   <div id="modeCountWrap" class="hidden">
     <div class="distance-row" id="distanceRowCount"></div>
@@ -1039,6 +1126,35 @@
   const RING_COLORS = ['#f5f5f0','#f5f5f0','#161616','#161616','#2f8fe0','#2f8fe0','#e6332a','#e6332a','#ffd400','#ffd400']; // index0..9 = score1..10
   const TARGET_R = 96;
 
+  function buildTriSVG(){
+    const ns = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(ns,'svg');
+    svg.setAttribute('viewBox','0 0 200 600');
+    svg.classList.add('target-svg');
+    const bg = document.createElementNS(ns,'rect');
+    bg.setAttribute('width',200); bg.setAttribute('height',600); bg.setAttribute('fill','#1b1f2a');
+    svg.appendChild(bg);
+    const cols = {6:'#2f8fe0',7:'#e6332a',8:'#e6332a',9:'#ffd400',10:'#ffd400'};
+    [100,300,500].forEach(cy=>{
+      for(let score=6; score<=10; score++){
+        const k = 11 - score; // 10→1 ... 6→5
+        const c = document.createElementNS(ns,'circle');
+        c.setAttribute('cx',100); c.setAttribute('cy',cy);
+        c.setAttribute('r', (TARGET_R*(6-score+5)/5 - 0).toFixed(2));
+        c.setAttribute('fill', cols[score]);
+        c.setAttribute('stroke','rgba(0,0,0,0.35)');
+        c.setAttribute('stroke-width','0.8');
+        svg.appendChild(c);
+      }
+      const xC = document.createElementNS(ns,'circle');
+      xC.setAttribute('cx',100); xC.setAttribute('cy',cy);
+      xC.setAttribute('r', (TARGET_R*0.1).toFixed(2));
+      xC.setAttribute('fill','none'); xC.setAttribute('stroke','rgba(0,0,0,0.55)'); xC.setAttribute('stroke-width','0.8');
+      svg.appendChild(xC);
+    });
+    return svg;
+  }
+
   function buildTargetSVG(){
     const ns = 'http://www.w3.org/2000/svg';
     const svg = document.createElementNS(ns,'svg');
@@ -1086,10 +1202,18 @@
   const STACK_R = 0.028;
 
   /* onTap(x,y) を渡すとタップでマークを置けるウィジェットに、渡さないと閲覧専用になる */
-  function createTargetWidget(marks, onTap, small){
+  function createTargetWidget(marks, onTap, small, tri){
     const wrap = document.createElement('div');
-    wrap.className = 'target-inner' + (onTap ? ' interactive' : '') + (small ? ' small' : '');
-    wrap.appendChild(buildTargetSVG());
+    wrap.className = 'target-inner' + (onTap ? ' interactive' : '') + (small ? ' small' : '') + (tri ? ' tri' : '');
+    let svgEl = tri ? buildTriSVG() : buildTargetSVG();
+    wrap.appendChild(svgEl);
+    function setTri(v){
+      v = !!v;
+      if(wrap.classList.contains('tri') === v) return;
+      wrap.classList.toggle('tri', v);
+      const n = v ? buildTriSVG() : buildTargetSVG();
+      wrap.replaceChild(n, svgEl); svgEl = n;
+    }
     const dots = document.createElement('div');
     dots.className = 'target-dots';
     wrap.appendChild(dots);
@@ -1137,7 +1261,7 @@
       });
       enablePinchZoom(wrap);
     }
-    return { el: wrap, paintDots };
+    return { el: wrap, paintDots, setTri };
   }
 
   /* ---------- 的専用のピンチズーム(2本指) ---------- */
@@ -1220,10 +1344,12 @@
     document.getElementById('mode6Wrap').classList.toggle('hidden', mode !== '6');
     document.getElementById('mode36Wrap').classList.toggle('hidden', mode !== '36');
     document.getElementById('mode72Wrap').classList.toggle('hidden', mode !== '72');
+    document.getElementById('modeInWrap').classList.toggle('hidden', mode !== 'indoor');
     document.getElementById('modeCountWrap').classList.toggle('hidden', mode !== 'count');
     document.getElementById('modeBtn6').classList.toggle('active', mode === '6');
     document.getElementById('modeBtn36').classList.toggle('active', mode === '36');
     document.getElementById('modeBtn72').classList.toggle('active', mode === '72');
+    document.getElementById('modeBtnIn').classList.toggle('active', mode === 'indoor');
     document.getElementById('modeBtnCount').classList.toggle('active', mode === 'count');
   }
 
@@ -2251,6 +2377,370 @@
     downloadCSV(rows, 'archery_round72_' + dateStamp(round.endedAt||round.startedAt) + '.csv');
   }
 
+  /* ============================================================
+     インドア(18m・60本)バージョン
+     ============================================================ */
+  const STORAGE_KEYIn = 'archery-indoor-rounds';
+  const ENDS_PER_ROUNDIn = 20;
+  const ARROWS_PER_ENDIn = 3;
+  const SPOT_MAX_BTN = ['X','10','9','8','7','6','0'];
+  let pastRoundsIn = [];
+  let currentIn = null;
+
+  const buttonGridIn = document.getElementById('buttonGridIn');
+  order.forEach(label=>{
+    const btn = document.createElement('button');
+    btn.className = 'score-btn';
+    if(label === 'X') btn.classList.add('x-btn');
+    if(label === '0') btn.classList.add('zero-btn');
+    btn.textContent = label === '0' ? 'M' : label;
+    btn.addEventListener('click', ()=> addScoreIn(label));
+    buttonGridIn.appendChild(btn);
+  });
+
+  function newRoundIn(distance, spot){
+    return { startedAt: nowLabel(), distance: '18m', spot: true, ends: [[]], endMarks: [[]], endMemos: [''] };
+  }
+
+  async function loadDataIn(){
+    try{
+      const result = await storageGet(STORAGE_KEYIn);
+      if(result && result.value){
+        const parsed = JSON.parse(result.value);
+        pastRoundsIn = parsed.pastRounds || [];
+        currentIn = parsed.current || newRoundIn();
+        currentIn.spot = true;
+        if(!currentIn.endMarks) currentIn.endMarks = currentIn.ends.map(()=>[]);
+        if(!currentIn.endMemos) currentIn.endMemos = currentIn.ends.map(()=>'');
+      } else {
+        pastRoundsIn = [];
+        currentIn = newRoundIn();
+      }
+    }catch(e){
+      pastRoundsIn = [];
+      currentIn = newRoundIn();
+    }
+    renderIn();
+  }
+
+  async function saveDataIn(){
+    try{
+      const payload = JSON.stringify({ pastRounds: pastRoundsIn, current: currentIn });
+      const result = await storageSet(STORAGE_KEYIn, payload);
+      saveStatusText(result ? '✔ 保存しました' : '⚠ 保存に失敗しました', 1200);
+    }catch(e){
+      saveStatusText('⚠ 保存エラー：' + e.message, 2000);
+    }
+  }
+
+  function currentEndIndexIn(){ return currentIn.ends.length - 1; }
+  function currentEndArrowsIn(){ return currentIn.ends[currentEndIndexIn()]; }
+  function currentEndMarksIn(){ return currentIn.endMarks[currentEndIndexIn()]; }
+
+  async function addScoreIn(label){
+    const arrows = currentEndArrowsIn();
+    if(arrows.length >= ARROWS_PER_ENDIn){
+      showToast('この立は' + ARROWS_PER_ENDIn + '本で終わりです。「次の立へ」を押してください。');
+      return;
+    }
+    const value = label === 'X' ? 10 : parseInt(label,10);
+    arrows.push({label, value});
+    renderIn();
+    if(navigator.vibrate) navigator.vibrate(15);
+    await saveDataIn();
+  }
+
+  async function addMarkIn(x, y){
+    const marks = currentEndMarksIn();
+    if(marks.length >= ARROWS_PER_ENDIn){
+      showToast('マークは1立' + ARROWS_PER_ENDIn + '個までです。');
+      return;
+    }
+    marks.push({x, y});
+    renderIn();
+    if(navigator.vibrate) navigator.vibrate(10);
+    await saveDataIn();
+  }
+
+  async function undoMarkIn(){
+    const marks = currentEndMarksIn();
+    if(marks.length === 0) return;
+    marks.pop();
+    renderIn();
+    await saveDataIn();
+  }
+
+  const targetIn = createTargetWidget([], (x,y)=> addMarkIn(x,y));
+  document.getElementById('targetHolderIn').appendChild(targetIn.el);
+  function resetTargetZoomIn(){ if(targetIn.el._resetZoom) targetIn.el._resetZoom(); }
+
+  const memoInputIn = document.getElementById('memoInputIn');
+  let memoSaveTimerIn = null;
+  memoInputIn.addEventListener('input', (e)=>{
+    currentIn.endMemos[currentEndIndexIn()] = e.target.value;
+    clearTimeout(memoSaveTimerIn);
+    memoSaveTimerIn = setTimeout(()=> saveDataIn(), 600);
+  });
+
+  async function undoIn(){
+    const arrows = currentEndArrowsIn();
+    if(arrows.length === 0){
+      if(currentEndIndexIn() === 0){ return; }
+      showToast('この立はまだ0本です。前の立の記録を消したい場合は「×」で削除してください。');
+      return;
+    }
+    arrows.pop();
+    renderIn();
+    await saveDataIn();
+  }
+
+  async function nextEndIn(){
+    const arrows = currentEndArrowsIn();
+    if(arrows.length < ARROWS_PER_ENDIn){
+      showToast('この立はまだ' + arrows.length + '/' + ARROWS_PER_ENDIn + '本です。3本入れてから進んでください。');
+      return;
+    }
+    if(currentEndIndexIn() < ENDS_PER_ROUNDIn - 1){
+      currentIn.ends.push([]);
+      currentIn.endMarks.push([]);
+      currentIn.endMemos.push('');
+      renderIn();
+      await saveDataIn();
+    } else {
+      await finishRoundIn();
+    }
+  }
+
+  async function finishRoundIn(){
+    currentIn.endedAt = nowLabel();
+    pastRoundsIn.unshift(currentIn);
+    currentIn = newRoundIn('18m', currentIn.spot);
+    renderIn();
+    await saveDataIn();
+    showToast('🏁 インドア60射のラウンドを保存しました！');
+  }
+
+  async function resetCurrentRoundIn(){
+    const totalArrows = currentIn.ends.reduce((s,e)=>s+e.length,0);
+    if(totalArrows === 0){
+      showToast('今ラウンドの記録はまだ0本です。');
+      return;
+    }
+    const ok = await showConfirm('今ラウンド(進行中のインドア60射)を全部消しますか？\n保存済みの過去ラウンドは消えません。', '全部消す');
+    if(!ok) return;
+    currentIn = newRoundIn('18m', currentIn.spot);
+    renderIn();
+    await saveDataIn();
+  }
+
+  async function deleteArrowIn(ends, endIdx, arrowIdx, onSaved){
+    const ok = await showConfirm('この1本の記録を削除しますか？');
+    if(!ok) return;
+    ends[endIdx].splice(arrowIdx, 1);
+    renderIn();
+    await onSaved();
+  }
+
+  async function deletePastRoundIn(idx){
+    const ok = await showConfirm('このインドア60射のラウンドをまとめて削除しますか？\nこの操作は取り消せません。', '削除する');
+    if(!ok) return;
+    pastRoundsIn.splice(idx, 1);
+    renderIn();
+    await saveDataIn();
+  }
+
+
+  function renderIn(){
+    const allArrows = flatten36(currentIn.ends);
+    const s = summarize(allArrows);
+    document.getElementById('totalScoreIn').textContent = s.total;
+    document.getElementById('arrowCountIn').textContent = s.count + ' / 60';
+    document.getElementById('xCountIn').textContent = s.xCount;
+    document.getElementById('avgScoreIn').textContent = s.avg.toFixed(2);
+    document.getElementById('bestScoreIn').textContent = s.best === null ? '-' : s.best;
+
+    const firstHalfArrows = flatten36(currentIn.ends.slice(0,10));
+    const secondHalfArrows = flatten36(currentIn.ends.slice(10,20));
+    document.getElementById('firstHalfScoreIn').textContent = summarize(firstHalfArrows).total;
+    document.getElementById('secondHalfScoreIn').textContent = summarize(secondHalfArrows).total;
+
+
+    const dotsEl = document.getElementById('endDotsIn');
+    dotsEl.innerHTML = '';
+    for(let i=0;i<ENDS_PER_ROUNDIn;i++){
+      const dot = document.createElement('div');
+      dot.className = 'end-dot';
+      if(i < currentEndIndexIn()) dot.classList.add('done');
+      else if(i === currentEndIndexIn()) dot.classList.add('active');
+      dot.textContent = (i % 10) + 1;
+      if(i === 10) dot.style.marginLeft = '10px';
+      dotsEl.appendChild(dot);
+    }
+    const activeArrows = currentEndArrowsIn();
+    const curIdxIn = currentEndIndexIn();
+    const halfNameIn = curIdxIn < 10 ? '前半' : '後半';
+    const endInHalfIn = (curIdxIn % 10) + 1;
+    document.getElementById('halfLabelIn').textContent = halfNameIn + '（' + (curIdxIn<6 ? '1〜10立目' : '11〜20立目') + '）の進み具合';
+    document.getElementById('endCountTextIn').textContent =
+      halfNameIn + ' ' + endInHalfIn + '立目（通算' + (curIdxIn+1) + '立目）：' + activeArrows.length + ' / ' + ARROWS_PER_ENDIn + ' 本';
+
+    const endFull = activeArrows.length >= ARROWS_PER_ENDIn;
+    buttonGridIn.querySelectorAll('.score-btn').forEach(btn=>{
+      const lab = btn.textContent === 'M' ? '0' : btn.textContent;
+      const notOnSpot = currentIn.spot && !SPOT_MAX_BTN.includes(lab);
+      btn.disabled = endFull || notOnSpot;
+    });
+    targetIn.setTri(currentIn.spot);
+    targetIn.paintDots(currentEndMarksIn());
+    document.getElementById('targetCountIn').textContent = 'マーク ' + currentEndMarksIn().length + '個';
+    if(document.activeElement !== memoInputIn) memoInputIn.value = currentIn.endMemos[currentEndIndexIn()] || '';
+
+    const nextBtn = document.getElementById('nextEndBtnIn');
+    nextBtn.disabled = !endFull;
+    nextBtn.textContent = (currentEndIndexIn() === ENDS_PER_ROUNDIn - 1)
+      ? '🏁 ラウンドを保存する(60本目)'
+      : '次の立へ ▶ (' + (currentEndIndexIn()+2) + '立目)';
+
+    const endsEl = document.getElementById('currentEndsIn');
+    endsEl.innerHTML = '';
+    currentIn.ends.forEach((endArrows, endIdx)=>{
+      const es = summarize(endArrows);
+      const block = document.createElement('div');
+      block.className = 'end-block';
+      const head = document.createElement('div');
+      head.className = 'end-block-head';
+      head.innerHTML = `<span><b>${endIdx<10?'前半':'後半'}${(endIdx%10)+1}立目</b></span><span>${es.count}/${ARROWS_PER_ENDIn}本・${es.total}点</span>`;
+      block.appendChild(head);
+      const chipsWrap = document.createElement('div');
+      chipsWrap.className = 'history';
+      renderChips(chipsWrap, endArrows, (arrowIdx)=> deleteArrowIn(currentIn.ends, endIdx, arrowIdx, saveDataIn));
+      block.appendChild(chipsWrap);
+      if(hasAnyMarks(currentIn.endMarks[endIdx])){
+        const thumb = createTargetWidget(currentIn.endMarks[endIdx], null, true, currentIn.spot);
+        thumb.el.style.marginTop = '10px';
+        block.appendChild(thumb.el);
+      }
+      if(endIdx !== currentEndIndexIn()){
+        const memoBox = createEditableMemo(currentIn.endMemos[endIdx], async (val)=>{
+          currentIn.endMemos[endIdx] = val;
+          await saveDataIn();
+        });
+        block.appendChild(memoBox);
+      }
+      endsEl.appendChild(block);
+    });
+
+    const pastEl = document.getElementById('pastRoundsListIn');
+    pastEl.innerHTML = '';
+    if(pastRoundsIn.length === 0){
+      pastEl.innerHTML = '<span class="empty-msg">まだ過去のラウンドはありません</span>';
+    } else {
+      pastRoundsIn.forEach((round, roundIdx)=>{
+        const allR = flatten36(round.ends);
+        const rs = summarize(allR);
+        const firstHalfR = summarize(flatten36(round.ends.slice(0,10)));
+        const secondHalfR = summarize(flatten36(round.ends.slice(10,20)));
+        const box = document.createElement('details');
+        box.className = 'past-round';
+
+        const summaryEl = document.createElement('summary');
+        const head = document.createElement('div');
+        head.className = 'past-round-head';
+        const dateSpan = document.createElement('span');
+        dateSpan.className = 'past-round-date';
+        dateSpan.textContent = '【18m' + (round.spot ? '・3スポット' : '') + '】' + (round.endedAt || round.startedAt);
+        const delBtn = document.createElement('button');
+        delBtn.className = 'round-del';
+        delBtn.textContent = '🗑 削除';
+        delBtn.addEventListener('click', (e)=>{ e.preventDefault(); deletePastRoundIn(roundIdx); });
+        const expBtn = document.createElement('button');
+        expBtn.className = 'record-export-btn';
+        expBtn.textContent = '📄 このラウンドだけ書き出す';
+        expBtn.addEventListener('click', (e)=>{ e.preventDefault(); exportSingleRoundIn(round); });
+        head.appendChild(dateSpan);
+        head.appendChild(expBtn);
+        head.appendChild(delBtn);
+        summaryEl.appendChild(head);
+
+        const summaryText = document.createElement('div');
+        summaryText.className = 'past-round-summary';
+        summaryText.textContent = `合計 ${rs.total}点 / ${rs.count}本 / X:${rs.xCount}本 / 平均 ${rs.avg.toFixed(2)}（前半 ${firstHalfR.total}点 / 後半 ${secondHalfR.total}点）`;
+        summaryEl.appendChild(summaryText);
+
+        const badges = document.createElement('div');
+        badges.className = 'end-badges';
+        round.ends.forEach((e, i)=>{
+          const es = summarize(e);
+          const b = document.createElement('span');
+          b.className = 'end-badge';
+          b.textContent = (i<10?'前':'後') + ((i%10)+1) + '立:' + es.total + '点';
+          badges.appendChild(b);
+        });
+        summaryEl.appendChild(badges);
+
+        box.appendChild(summaryEl);
+
+        const details = document.createElement('div');
+        details.className = 'past-round-details';
+        round.ends.forEach((endArrows, endIdx)=>{
+          const es = summarize(endArrows);
+          const block = document.createElement('div');
+          block.className = 'end-block';
+          const eHead = document.createElement('div');
+          eHead.className = 'end-block-head';
+          eHead.innerHTML = `<span><b>${endIdx<10?'前半':'後半'}${(endIdx%10)+1}立目</b></span><span>${es.count}本・${es.total}点</span>`;
+          block.appendChild(eHead);
+          const chipsWrap = document.createElement('div');
+          chipsWrap.className = 'history';
+          renderChips(chipsWrap, endArrows, (arrowIdx)=> deleteArrowIn(round.ends, endIdx, arrowIdx, saveDataIn));
+          block.appendChild(chipsWrap);
+          if(hasAnyMarks(round.endMarks && round.endMarks[endIdx])){
+            const thumb = createTargetWidget(round.endMarks[endIdx], null, true, round.spot);
+            thumb.el.style.marginTop = '10px';
+            block.appendChild(thumb.el);
+          }
+          if(!round.endMemos) round.endMemos = round.ends.map(()=>'');
+          const memoBox = createEditableMemo(round.endMemos[endIdx], async (val)=>{
+            round.endMemos[endIdx] = val;
+            await saveDataIn();
+          });
+          block.appendChild(memoBox);
+          details.appendChild(block);
+        });
+        box.appendChild(details);
+
+        pastEl.appendChild(box);
+      });
+    }
+  }
+
+  function exportCSVIn(){
+    let rows = [['距離','日時(ラウンド保存時)','立(エンド)','得点(X=10)','X判定']];
+    const allRounds = [...pastRoundsIn];
+    const currentHasArrows = flatten36(currentIn.ends).length > 0;
+    if(currentHasArrows) allRounds.unshift({...currentIn, endedAt:'(進行中)'});
+    allRounds.forEach(round=>{
+      round.ends.forEach((endArrows, endIdx)=>{
+        endArrows.forEach(a=>{
+          rows.push([(round.spot ? '18m(3スポット)' : '18m'), round.endedAt || round.startedAt, (endIdx<10?'前半':'後半')+((endIdx%10)+1)+'立目', a.value, a.label==='X'?'X':'']);
+        });
+      });
+    });
+    downloadCSV(rows, 'archery_indoor_records_' + new Date().toISOString().slice(0,10) + '.csv');
+  }
+
+  function exportSingleRoundIn(round){
+    let rows = [['距離','日時','立(エンド)','得点(X=10)','X判定','メモ']];
+    round.ends.forEach((endArrows, endIdx)=>{
+      const memo = (round.endMemos && round.endMemos[endIdx]) || '';
+      const label = (endIdx<10?'前半':'後半')+((endIdx%10)+1)+'立目';
+      endArrows.forEach((a,i)=>{
+        rows.push([(round.spot ? '18m(3スポット)' : '18m'), round.endedAt||round.startedAt, label, a.value, a.label==='X'?'X':'', i===0 ? memo : '']);
+      });
+    });
+    downloadCSV(rows, 'archery_indoor_round_' + dateStamp(round.endedAt||round.startedAt) + '.csv');
+  }
+
   /* ---------- 共通CSV書き出し ---------- */
   function downloadCSV(rows, filename){
     const csvContent = rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
@@ -2415,6 +2905,7 @@
       sessions6: { pastSessions: allSessions6, current: current6 },
       rounds36: { pastRounds: pastRounds36, current: current36 },
       rounds72: { pastRounds: pastRounds72, current: current72 },
+      roundsIndoor: { pastRounds: pastRoundsIn, current: currentIn },
       count: { pastSessions: allSessionsCount, current: currentCount }
     };
     const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
@@ -2458,6 +2949,14 @@
         if(!current72.endMemos) current72.endMemos = current72.ends.map(()=>'');
         await saveData72();
       }
+      if(data.roundsIndoor){
+        pastRoundsIn = data.roundsIndoor.pastRounds || [];
+        currentIn = data.roundsIndoor.current || newRoundIn();
+        currentIn.spot = true;
+        if(!currentIn.endMarks) currentIn.endMarks = currentIn.ends.map(()=>[]);
+        if(!currentIn.endMemos) currentIn.endMemos = currentIn.ends.map(()=>'');
+        await saveDataIn();
+      }
       if(data.count){
         allSessionsCount = data.count.pastSessions || [];
         currentCount = data.count.current || newSessionCount();
@@ -2467,6 +2966,7 @@
       render6();
       render36();
       render72();
+      renderIn();
       renderCount();
       showToast('✅ バックアップを読み込みました');
     }catch(err){
@@ -2522,6 +3022,23 @@
       });
     });
 
+    const allIn = [...pastRoundsIn];
+    if(flatten36(currentIn.ends).length > 0) allIn.unshift({...currentIn, endedAt:'(進行中)'});
+    allIn.forEach(round=>{
+      const modeName = round.spot ? 'インドア60本(3スポット)' : 'インドア60本';
+      round.ends.forEach((endArrows, endIdx)=>{
+        const memo = (round.endMemos && round.endMemos[endIdx]) || '';
+        const halfLabel = (endIdx<10?'前半':'後半') + ((endIdx%10)+1) + '立目';
+        if(endArrows.length === 0){
+          rows.push([modeName, '18m', round.endedAt||round.startedAt, halfLabel, '', '', memo]);
+        } else {
+          endArrows.forEach((a,i)=>{
+            rows.push([modeName, '18m', round.endedAt||round.startedAt, halfLabel, a.value, a.label==='X'?'X':'', i===0 ? memo : '']);
+          });
+        }
+      });
+    });
+
     const allCount = [...allSessionsCount];
     if(currentCount.count > 0) allCount.unshift({...currentCount, endedAt:'(進行中)'});
     allCount.forEach(sess=>{
@@ -2543,6 +3060,7 @@
   loadData6();
   loadData36();
   loadData72();
+  loadDataIn();
   loadDataCount();
 </script>
 </body>
